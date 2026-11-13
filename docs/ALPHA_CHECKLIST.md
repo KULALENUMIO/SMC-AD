@@ -51,8 +51,9 @@
 - `__pycache__/` は削除した（作り直されるもの）
 - `.gitignore` で除外するもの: `_archive/`、`GitHub/`、`extracted/`、`verify/`、`SMConverter/Build/`、Unity の Library・Temp・Logs・UserSettings、取り込んだ機体（`Assets/SMCAD*`）、変換結果のフォルダ
 - Git に入るもの: 848 ファイル、約 38MB（一番大きいのは同梱ライブラリの DLL、約 7MB）。個人のパスや ID が入っていないことを確認した
-- Git: 2026-11-14 に作成（ブランチ main、リモートなし）
+- Git: 2026-11-14 に作成し、GitHub に公開した（https://github.com/KULALENUMIO/SMC-AD 、ブランチ main）
   1. `Import SM-Converter v1.2.4-pre (upstream)`: 元の SM-Converter をそのまま `SMConverter/` に入れた
   2. `SMC-AD alpha`: SMC-AD のすべて。`git diff HEAD~1 -- SMConverter` で元からの改変だけが見える
   - コミットの名義は `SMC-AD Project`（メールは実在しない仮のもの。個人のメールを残さないため）
-- まだしていないこと: Blender 拡張の zip（`extension build`）、リモート（GitHub など）への push
+- README の一番上に「α版・実験的。気まぐれで更新。正式版では削除・置き換えの可能性あり」を日英で書いた
+- まだしていないこと: Blender 拡張の zip（`extension build`）と GitHub の Releases への登録
