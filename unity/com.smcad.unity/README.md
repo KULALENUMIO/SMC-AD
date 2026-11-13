@@ -1,5 +1,7 @@
 # SMC-AD Scrap Mechanic Importer (Unity)
 
+> **Alpha / experimental prototype.** Updated on a whim; don't expect regular updates or support. The repository may be deleted or replaced if a proper release is ever made.
+
 Imports `.glb` files written by the SMC-AD build of SMConverter (`SMConverterCLI -gltf [-cullhidden] [-optimizeblocks] -septype joints`).
 
 - Requirements: Unity 6.1+ (tested 6000.3.10f1), URP 17.1+, **Linear** colour space (Gamma works but paint colours are stored as sRGB and a warning is logged).
