@@ -56,4 +56,4 @@
   2. `SMC-AD alpha`: SMC-AD のすべて。`git diff HEAD~1 -- SMConverter` で元からの改変だけが見える
   - コミットの名義は `SMC-AD Project`（メールは実在しない仮のもの。個人のメールを残さないため）
 - README の一番上に「α版・実験的。気まぐれで更新。正式版では削除・置き換えの可能性あり」を日英で書いた
-- まだしていないこと: Blender 拡張の zip（`extension build`）と GitHub の Releases への登録
+- プレリリース v0.6.0-alpha を GitHub の Releases に登録した（Blender 拡張 2つ、変換ツール、Unity パッケージ、SHA256SUMS）

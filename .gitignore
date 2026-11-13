@@ -42,3 +42,4 @@ ConvertedWorlds/
 .idea/
 Thumbs.db
 desktop.ini
+/dist_release/

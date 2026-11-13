@@ -1,5 +1,17 @@
 # SMC-AD 変更履歴
 
+## v0.6.0-alpha（プレリリース）
+- GitHub の Releases に、配布用のファイルを置いた
+  - `smc_ad-0.6.0.zip`、`smc_ad_plus_surfaces-0.3.0.zip`: Blender 拡張（`blender --command extension build` で作成）
+  - `SMC-AD-Converter-win64-v0.6.0-alpha.zip`: ビルドした変換ツール。必要な DLL、`Resources/`、ライセンス、
+    Assimp と LZ4 の条文を同梱。個人の設定（`Resources/Config.json`）は入れていない
+  - `com.smcad.unity-0.3.0.tgz`: Unity パッケージ（Package Manager の「Add package from tarball」で入れる）
+- 確認した
+  - 新しい Blender のユーザーフォルダに zip から入れて、変換ツールのフォルダを設定し、変換・材質の自動割り当て・FBX 書き出しまで通った
+  - 変換ツールは `Config.json` がない状態から起動して、ゲームの場所を自動で見つけた
+  - Unity のテストプロジェクトで tgz を読み込み、コンパイルエラーはなかった
+- SMC-AD 拡張の権限の説明に「変換ツールの実行」を加えた
+
 ## Git の前の準備: ライセンスとファイルの整理
 - 名義を **SMC-AD Project** にした（SMC-AD = Scrap Mechanic Converter – Assemble & Deliver）
 - ライセンスを確認した

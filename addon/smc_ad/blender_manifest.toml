@@ -15,4 +15,4 @@ copyright = ["2026 SMC-AD Project"]
 tags = ["Import-Export", "Material"]
 
 [permissions]
-files = "SMConverter の .glb の読み込みと、テクスチャの展開"
+files = "変換ツール（SMConverter）の実行、.glb の読み込み、テクスチャの展開"
