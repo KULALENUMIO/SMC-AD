@@ -1,5 +1,15 @@
 # SMC-AD
 
+> [!WARNING]
+> **α版・試作品です。中身は完全に実験的なものです。**
+> - 作者の気まぐれで作っています。まともな更新やサポートは期待しないでください
+> - 不具合があっても直すとは限りません。使い方や中身は予告なく変わります
+> - 正式版にするときは、このリポジトリを削除するか、別のリポジトリに置き換えるかもしれません
+>
+> **Alpha / prototype. Everything here is experimental.** Updates happen on a whim — please don't expect
+> regular updates, fixes or support. Things may change without notice, and this repository may be deleted or
+> replaced by another one if a proper release is ever made.
+
 **SMC-AD（Scrap Mechanic Converter – Assemble & Deliver）** は、Scrap Mechanic のブループリントを Blender に取り込み、
 位置・回転・原点・親子を整えて（リギングは手作業）、Unity へ持っていくか Blender で撮影するための道具一式です。
 
