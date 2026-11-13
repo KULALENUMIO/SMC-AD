@@ -37,7 +37,14 @@
 - Blender 4.2 以降（確認は 5.3）
 - Unity 6000.1 以降 + URP（確認は 6000.3）
 
-## 使い方（概要）
+## 入れ方（リリースから）
+[Releases](https://github.com/KULALENUMIO/SMC-AD/releases) にプレリリース版を置いています（Windows のみ）。
+1. `SMC-AD-Converter-win64-*.zip` を好きな場所に展開する
+2. Blender の「編集 > プリファレンス > 拡張機能 > ディスクからインストール」で `smc_ad-*.zip`（と、必要なら `smc_ad_plus_surfaces-*.zip`）を入れる
+3. SMC-AD の設定の「変換ツール（SMConverterCLI.exe）」に、1. で展開したフォルダの `SMConverterCLI.exe` を指定する
+4. Unity: Package Manager の「+ > Add package from tarball...」で `com.smcad.unity-*.tgz` を入れる（tgz は入れたあとも消さずに置いておく）
+
+## 使い方（概要。ソースからビルドする場合）
 1. 変換ツールをビルドする
    ```
    MSBuild SMConverter/SM-Converter.sln -t:SMConverterCLI -p:Configuration=Release -p:Platform=x64
