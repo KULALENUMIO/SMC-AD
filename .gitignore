@@ -1,0 +1,44 @@
+# ---- Kept on this PC only (not part of the project)
+# old files, the original SMConverter/.git, a patch of the changes from upstream
+/_archive/
+# original upstream zips
+/GitHub/
+# unpacked upstream zips
+/extracted/
+# test outputs (contain converted game data)
+/verify/
+/.bp_root
+
+# ---- Build outputs
+/SMConverter/Build/
+/SMConverter/.vs/
+/addon/dist/
+/addon_plus/dist/
+__pycache__/
+*.pyc
+*.blend1
+
+# ---- Unity test project: only settings and the test script are kept
+/unity/SMCAD_TestProject/[Ll]ibrary/
+/unity/SMCAD_TestProject/[Tt]emp/
+/unity/SMCAD_TestProject/[Oo]bj/
+/unity/SMCAD_TestProject/[Ll]ogs/
+/unity/SMCAD_TestProject/[Uu]ser[Ss]ettings/
+/unity/SMCAD_TestProject/*.sln
+/unity/SMCAD_TestProject/*.csproj
+# imported blueprints contain textures from the game (Axolot Games): never commit them
+/unity/SMCAD_TestProject/Assets/SMCAD*/
+/unity/SMCAD_TestProject/Assets/SMCAD*.meta
+*.log
+
+# ---- Converted models anywhere (they contain game textures)
+ConvertedBlueprints/
+ConvertedTiles/
+ConvertedWorlds/
+
+# ---- OS / editors
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

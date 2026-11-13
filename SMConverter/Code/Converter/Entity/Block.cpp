@@ -199,3 +199,8 @@ glm::mat4 SMBlock::GetTransformMatrix() const
 
 	return v_transform;
 }
+
+std::string_view SMBlock::GetPhysicsMaterial() const
+{
+	return m_parent->m_physicsMaterial;
+}

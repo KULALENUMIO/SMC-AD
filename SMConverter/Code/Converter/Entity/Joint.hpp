@@ -26,6 +26,7 @@ public:
 
 	std::size_t GetIndex() const override;
 	SMColor GetColor() const override;
+	std::string_view GetPhysicsMaterial() const override;
 	EntityType Type() const override;
 	char* GetMtlNameCStr(const std::string_view& material, const std::size_t idx, char* pCString) const override;
 	void FillTextureMap(EntityTextureMap& textureMap) const override;
@@ -35,6 +36,16 @@ public:
 private:
 	const PartData* m_parent;
 	std::size_t m_index;
+
+public:
+	// Second shape the joint is attached to and the joint id from the blueprint (-1 when missing)
+	std::size_t m_childB = std::size_t(-1);
+	std::size_t m_jointId = std::size_t(-1);
+	glm::vec3 m_jointPos{ 0.0f }; // posA, in body grid units
+	unsigned char m_jointRotation = 0;
+	inline const PartData* GetPartData() const noexcept { return m_parent; }
+
+private:
 	SMColor m_color;
 	unsigned char m_xzRotation;
 };

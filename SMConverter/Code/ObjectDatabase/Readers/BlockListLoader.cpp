@@ -87,6 +87,10 @@ void BlockListLoader::Load(const simdjson::dom::element& fBlocks, SMMod* mod, bo
 			mod
 		);
 
+		const auto v_physMat = v_blk["physicsMaterial"];
+		if (v_physMat.is_string())
+			v_pNewBlk->m_physicsMaterial.assign(v_physMat.get_string().value_unsafe());
+
 		(mod->m_Blocks.*v_adder_func)(v_pNewBlk);
 		ProgCounter::ProgressValue++;
 	}

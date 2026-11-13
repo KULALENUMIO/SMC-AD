@@ -410,17 +410,27 @@ void SMBlueprint::LoadJoint(const simdjson::dom::element& v_jnt)
 	Model* v_jnt_model = ModelStorage::LoadModel(v_jnt_data->m_mesh);
 	if (!v_jnt_model) return;
 
-	this->m_addObjectFunction(
-		this,
-		new SMJoint(
-			v_jnt_data,
-			v_pos_vec,
-			v_jnt_model,
-			v_jnt_color,
-			v_xzRotation,
-			v_child_idx
-		)
+	SMJoint* v_pJoint = new SMJoint(
+		v_jnt_data,
+		v_pos_vec,
+		v_jnt_model,
+		v_jnt_color,
+		v_xzRotation,
+		v_child_idx
 	);
+
+	const auto v_childB = v_jnt["childB"];
+	if (v_childB.is_number())
+		v_pJoint->m_childB = JsonReader::GetNumber<std::size_t>(v_childB.value_unsafe());
+
+	const auto v_jntId = v_jnt["id"];
+	if (v_jntId.is_number())
+		v_pJoint->m_jointId = JsonReader::GetNumber<std::size_t>(v_jntId.value_unsafe());
+
+	v_pJoint->m_jointPos = v_pos_vec;
+	v_pJoint->m_jointRotation = v_xzRotation;
+
+	this->m_addObjectFunction(this, v_pJoint);
 }
 
 void SMBlueprint::LoadBodiesWithCounter(const simdjson::dom::element& v_blueprint)

@@ -108,3 +108,8 @@ bool SMPart::GetCanWrite(const std::string_view& name, const std::size_t idx) co
 
 	return !v_pTexList->m_shadowOnly;
 }
+
+std::string_view SMPart::GetPhysicsMaterial() const
+{
+	return m_parent->m_physicsMaterial;
+}

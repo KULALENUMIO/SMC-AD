@@ -6,11 +6,21 @@
 
 #include "Converter/Entity/ControllerParser.hpp"
 #include "Converter/Entity/ControllerTransform.hpp"
+#include "Converter/BlockMesher/BlockMesher.hpp"
+#include "Converter/Gltf/HiddenFaceCuller.hpp"
+#include "Converter/Gltf/CoplanarFixer.hpp"
+#include "Converter/Gltf/GeometryCapture.hpp"
+#include "Converter/Gltf/GltfWriter.hpp"
+#include "Converter/Gltf/JointHierarchy.hpp"
 #include "Converter/ConvertSettings.hpp"
 #include "Converter/MtlFileWriter.hpp"
 
 #include "Utils/Console.hpp"
+#include "Utils/String.hpp"
 #include "Utils/File.hpp"
+
+#include <nlohmann/json.hpp>
+#include <filesystem>
 
 SM_UNMANAGED_CODE
 
@@ -37,6 +47,31 @@ void BlueprintConv::WriteToFileInternal(
 
 	const std::wstring v_bpOutputPath = v_bpDirPath + L"/" + blueprintName;
 
+	glm::vec3 v_centerPoint(0.0f);
+
+	const std::size_t v_bp_object_count = pBlueprint->GetAmountOfObjects();
+	if (v_bp_object_count > 0) //prevent division by 0 exception
+	{
+		pBlueprint->CalculateCenterPoint(v_centerPoint);
+		v_centerPoint /= static_cast<float>(v_bp_object_count);
+	}
+
+	v_centerPoint *= pBlueprint->m_size;
+
+	// Block optimization has to happen after the center point calculation, so the output position stays the same.
+	// "All" separation puts every block into its own object, so merging makes no sense there.
+	if (BlueprintConverterSettings::BlockOptimization != BlockOpt_None
+		&& BlueprintConverterSettings::SeparationType != BPObjectSep_All)
+	{
+		BlockMesher::Optimize(pBlueprint, BlueprintConverterSettings::BlockOptimization);
+	}
+
+	if (BlueprintConverterSettings::ExportGltf)
+	{
+		BlueprintConv::WriteGltf(pBlueprint, blueprintName, v_bpOutputPath + L".glb", v_centerPoint, error);
+		return;
+	}
+
 	{
 		// Write object file
 		std::ofstream v_obj_writer(v_bpOutputPath + L".obj");
@@ -46,18 +81,7 @@ void BlueprintConv::WriteToFileInternal(
 			return;
 		}
 
-		glm::vec3 v_centerPoint(0.0f);
-
-		const std::size_t v_bp_object_count = pBlueprint->GetAmountOfObjects();
-		if (v_bp_object_count > 0) //prevent division by 0 exception
-		{
-			pBlueprint->CalculateCenterPoint(v_centerPoint);
-			v_centerPoint /= static_cast<float>(v_bp_object_count);
-		}
-
-		v_centerPoint *= pBlueprint->m_size;
-
-		ProgCounter::SetState(ProgState::WritingObjects, v_bp_object_count);
+		ProgCounter::SetState(ProgState::WritingObjects, pBlueprint->GetAmountOfObjects());
 
 		WriterOffsetData v_offset_data;
 		pBlueprint->WriteObjectToFile(v_obj_writer, v_offset_data, glm::translate(-v_centerPoint));
@@ -74,6 +98,112 @@ void BlueprintConv::WriteToFileInternal(
 
 		MtlFileWriter::Write(v_bpOutputPath + L".mtl", v_textureMap);
 	}
+}
+
+void BlueprintConv::WriteGltf(
+	SMBlueprint* pBlueprint,
+	const std::wstring& blueprintName,
+	const std::wstring& outputPath,
+	const glm::vec3& centerPoint,
+	ConvertError& error)
+{
+	ProgCounter::SetState(ProgState::WritingObjects, pBlueprint->GetAmountOfObjects());
+
+	// Material name -> textures + paint color (same lookup the .mtl writer uses)
+	SMEntity::EntityTextureMap v_textureMap;
+	pBlueprint->FillTextureMap(v_textureMap);
+
+	GeometryCapture::Reset();
+
+	// Same transform SMBlueprint::WriteObjectToFile applies
+	const glm::mat4 v_bpTransform = glm::translate(-centerPoint) * pBlueprint->GetTransformMatrix();
+
+	std::ofstream v_nullStream; // bodies still write their "o" lines; an unopened stream discards them
+	WriterOffsetData v_offset;
+
+	std::vector<CapturedMesh> v_meshes;
+	std::vector<const SMBody*> v_meshBodies;
+	CapturedMesh v_looseObjects;
+	v_looseObjects.name = String::ToUtf8(blueprintName);
+
+	for (SMEntity* v_pEntity : pBlueprint->m_objects)
+	{
+		CapturedMesh* v_pTarget = &v_looseObjects;
+		if (v_pEntity->Type() == EntityType::Body)
+		{
+			v_meshes.emplace_back();
+			v_meshes.back().name = static_cast<SMBody*>(v_pEntity)->GetName();
+			v_meshBodies.push_back(static_cast<SMBody*>(v_pEntity));
+			v_pTarget = &v_meshes.back();
+		}
+
+		GeometryCapture::Begin(v_pTarget, &v_textureMap);
+		v_pEntity->WriteObjectToFile(v_nullStream, v_offset, v_bpTransform);
+		GeometryCapture::End();
+	}
+
+	if (!v_looseObjects.faces.empty())
+		v_meshes.push_back(std::move(v_looseObjects));
+
+	if (BlueprintConverterSettings::CullHiddenFaces)
+	{
+		std::size_t v_in = 0, v_out = 0, v_raster = 0;
+		for (CapturedMesh& v_mesh : v_meshes)
+		{
+			const HiddenFaceCuller::Stats v_stats = HiddenFaceCuller::Cull(v_mesh);
+			v_in += v_stats.facesIn;
+			v_out += v_stats.facesOut;
+			v_raster += v_stats.keptByRaster;
+		}
+
+		DebugOutL("[HiddenFaceCuller] faces: ", v_in, " -> ", v_out, " (kept by outside view test: ", v_raster, ")");
+	}
+
+	// After culling: moving only the overlapping faces opens hairline slits at their edges, and the culler
+	// would treat interior faces seen through those slits as visible. Culling the original geometry first avoids that.
+	if (BlueprintConverterSettings::FixCoplanar)
+	{
+		std::size_t v_groups = 0, v_moved = 0;
+		for (CapturedMesh& v_mesh : v_meshes)
+		{
+			const CoplanarFixer::Stats v_stats = CoplanarFixer::Fix(v_mesh, BlueprintConverterSettings::CoplanarOffset);
+			v_groups += v_stats.groups;
+			v_moved += v_stats.facesMoved;
+		}
+
+		DebugOutL("[CoplanarFixer] overlapping groups: ", v_groups, ", faces pushed back: ", v_moved);
+	}
+
+
+	// Joint separation: bodies become a hierarchy pivoting on their joints
+	std::string v_rootExtras;
+	if (BlueprintConverterSettings::SeparationType == BPObjectSep_Joints)
+		v_rootExtras = JointHierarchy::Build(pBlueprint, v_meshes, v_meshBodies, v_bpTransform);
+
+	// The blueprint's own name (description.json "name", e.g. "SEV 01"): readable object names in Blender / Unity
+	{
+		nlohmann::json v_extras = v_rootExtras.empty() ? nlohmann::json::object() : nlohmann::json::parse(v_rootExtras, nullptr, false);
+		std::string v_desc;
+		const std::wstring v_descPath = (std::filesystem::path(CurrentBlueprintPath).parent_path() / L"description.json").wstring();
+		if (!v_extras.is_discarded() && !CurrentBlueprintPath.empty() && File::ReadToString(v_descPath, v_desc))
+		{
+			const nlohmann::json v_d = nlohmann::json::parse(v_desc, nullptr, false, true);
+			if (v_d.is_object() && v_d.contains("name") && v_d["name"].is_string())
+			{
+				v_extras["sm_blueprint_name"] = v_d["name"];
+				v_rootExtras = v_extras.dump();
+			}
+		}
+	}
+
+	std::string v_errorStr;
+	if (!GltfWriter::Write(outputPath, String::ToUtf8(blueprintName), v_meshes, v_rootExtras, v_errorStr))
+	{
+		DebugErrorL("glTF export failed: ", v_errorStr);
+		error.setError(1, "Couldn't write the glb file");
+	}
+
+	GeometryCapture::Reset();
 }
 
 SMBody* BlueprintConv::CreateCollection(
@@ -258,6 +388,7 @@ void BlueprintConv::ConvertToModel(
 		error.setError(1, "The specified path leads to a directory");
 		return;
 	}
+	CurrentBlueprintPath = blueprintPath;
 
 	SMBlueprint::AddObjectFunction v_add_obj_func = BlueprintConv::GetAddObjectFunction();
 	SMBlueprint* v_pBlueprint = nullptr;

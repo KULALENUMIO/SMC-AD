@@ -1,0 +1,7 @@
+{
+    "name": "SMCAD.Editor",
+    "rootNamespace": "SMCAD.Editor",
+    "references": [ "SMCAD.Runtime" ],
+    "includePlatforms": [ "Editor" ],
+    "autoReferenced": true
+}

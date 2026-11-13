@@ -2,6 +2,7 @@
 
 #include "Converter/ConvertSettings.hpp"
 #include "Converter/Entity/Entity.hpp"
+#include "Converter/Gltf/GeometryCapture.hpp"
 
 #include "Utils/Console.hpp"
 #include "Utils/String.hpp"
@@ -224,6 +225,13 @@ void Model::WriteToFile(
 	std::ofstream& file,
 	const SMEntity* pEntity)
 {
+	// glTF export: collect the transformed geometry instead of writing obj lines
+	if (GeometryCapture::IsActive())
+	{
+		GeometryCapture::AddModel(*this, model_mat, pEntity);
+		return;
+	}
+
 	std::vector<glm::vec3> v_translatedVertices(SharedConverterSettings::DeduplicateVertices ? m_vertices.size() : 0);
 	std::vector<glm::vec3> v_translatedNormals(m_normals.size());
 

@@ -139,6 +139,7 @@ public:
 	int m_tiling;
 
 	SMMod* m_mod;
+	std::string m_physicsMaterial; // shapeset "physicsMaterial" (Metal, Wood, Rubber, ...)
 };
 
 class PartData
@@ -175,6 +176,11 @@ public:
 	SMColor m_defaultColor;
 	glm::vec3 m_bounds;
 	SMMod* m_mod;
+
+	// Joint behaviour from the shapeset ("bearing", "piston", "spring" keys)
+	enum : std::uint8_t { Joint_None = 0, Joint_Bearing = 1, Joint_Piston = 2, Joint_Spring = 3 };
+	std::uint8_t m_jointType = Joint_None;
+	std::string m_physicsMaterial; // shapeset "physicsMaterial" (Metal, Wood, Rubber, ...)
 };
 
 struct ClutterDataParams
