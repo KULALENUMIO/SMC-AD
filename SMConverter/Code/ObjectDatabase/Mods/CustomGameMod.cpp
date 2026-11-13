@@ -1,0 +1,56 @@
+#include "CustomGameMod.hpp"
+
+#include "ObjectDatabase/KeywordReplacer.hpp"
+#include "Utils/Json.hpp"
+
+SM_UNMANAGED_CODE
+
+CustomGame::CustomGame(
+	const std::wstring_view& name,
+	const std::wstring_view& directory,
+	const SMUuid& uuid,
+	std::uint64_t workshop_id,
+	bool isLocal
+)
+	: SMMod(
+		name,
+		directory,
+		uuid,
+		workshop_id,
+		isLocal
+	)
+	, m_shouldUseGameContent(false)
+	, m_shouldUseUserMods(false)
+	, m_id(SMMod::CustomGameVector.size())
+{
+	SMMod::CustomGameStorage.emplace(m_Uuid, this);
+	SMMod::CustomGameVector.push_back(this);
+}
+
+bool CustomGame::CheckSurvivalContent()
+{
+	const std::wstring v_config_path = m_Directory + L"/config.json";
+
+	simdjson::dom::document v_doc;
+	if (!JsonReader::LoadParseSimdjsonCommentsC(v_config_path, v_doc, simdjson::dom::element_type::OBJECT))
+		return false;
+
+	const auto v_base_game_content = v_doc.root()["baseGameContent"];
+	if (!v_base_game_content.is_string()) return false;
+
+	const std::string_view v_baseGameContentView = v_base_game_content.get_string().value_unsafe();
+
+	return v_baseGameContentView == "Survival" || v_baseGameContentView == "Creative";
+}
+
+void CustomGame::LoadObjectDatabase()
+{
+	KeywordReplacer::SetModData(m_Uuid, m_Directory);
+
+	m_shouldUseGameContent = this->CheckSurvivalContent();
+
+	this->LoadShapeSetList(m_Directory + L"/Objects/Database/shapesets.shapedb", false);
+	this->LoadAssetSetList(m_Directory + L"/Terrain/Database/assetsets.assetdb", false);
+	this->LoadHarvestableSetList(m_Directory + L"/Harvestables/Database/harvestablesets.harvestabledb", false);
+	this->LoadKinematicSetList(m_Directory + L"/Kinematics/Database/kinematicsets.kinematicdb", false);
+}

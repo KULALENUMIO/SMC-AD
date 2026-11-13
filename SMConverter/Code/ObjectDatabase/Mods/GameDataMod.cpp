@@ -1,0 +1,35 @@
+#include "GameDataMod.hpp"
+
+#include "ObjectDatabase/DatabaseConfig.hpp"
+#include "UStd/UnmanagedFilesystem.hpp"
+
+SM_UNMANAGED_CODE
+
+GameDataMod::GameDataMod()
+	: SMMod(
+		L"Vanilla Data",
+		DatabaseConfig::GamePath,
+		SMUuid(0x45157449ee614269, 0xa6ab3137e2945fca),
+		0,
+		true
+	)
+{}
+
+void GameDataMod::LoadObjectDatabase()
+{
+	namespace fs = std::filesystem;
+
+	this->LoadFile(L"./Resources/ResourceReplacements.json", true);
+
+	for (const auto& v_dbItem : DatabaseConfig::AssetListFolders)
+	{
+		std::error_code v_error;
+		const bool v_isRegularFile = fs::is_regular_file(v_dbItem, v_error);
+		if (v_error) continue;
+
+		if (v_isRegularFile)
+			this->LoadFile(v_dbItem, true);
+		else
+			this->ScanDatabaseFolderRecursive(v_dbItem, true);
+	}
+}

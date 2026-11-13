@@ -1,0 +1,70 @@
+{
+	"assetListRenderable": [
+		{
+			"uuid": "990cce84-a683-4ea6-83cc-d0aee5e71e15",
+			"name": "water",
+			"renderable": {
+				"lodList": [
+					{
+						"mesh": "./Resources/Water.obj",
+						"subMeshList": [
+							{
+								"material": "Water",
+								"textureList": [
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_color_dif.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_high_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_high_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_caustics_gra.tga"
+						    	]
+							}
+						]	
+					}
+				]
+			}
+		},
+		{
+			"uuid": "f0f2db63-1f2e-4aae-8dc4-ab7cd6fe2658",
+			"name": "chemicals",
+			"renderable": {
+				"lodList": [
+					{
+						"mesh": "./Resources/Water.obj",
+						"subMeshList": [
+							{
+								"material": "Chemicals",
+								"textureList": [
+									"$SURVIVAL_DATA/Effects/Textures/Water/chemical_color_dif.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/chemical_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_low_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/chemical_caustics_gra.tga"
+						    	]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"uuid": "40151920-f883-4d59-8f5d-c9d52222a6f8",   
+			"name": "oil",
+			"renderable": {
+				"lodList": [
+					{
+						"mesh": "./Resources/Water.obj",
+						"subMeshList": [
+							{
+								"material": "Oil",
+								"textureList": [
+									"$SURVIVAL_DATA/Effects/Textures/Water/oil_color_dif.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/water_low_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/oil_nor.tga",
+									"$SURVIVAL_DATA/Effects/Textures/Water/oil_caustics_gra.tga"
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

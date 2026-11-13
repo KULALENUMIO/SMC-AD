@@ -1,0 +1,206 @@
+#include "KeywordReplacer.hpp"
+
+#include "ObjectDatabase/DatabaseConfig.hpp"
+
+#include "Utils/Console.hpp"
+#include "Utils/String.hpp"
+
+SM_UNMANAGED_CODE
+
+void KeywordReplacer::CreateKey(std::wstring& key, std::wstring& replacement)
+{
+	String::ToLowerR(key);
+	String::ToLowerR(replacement);
+
+	String::ReplaceAllR(key,         L'\\', L'/');
+	String::ReplaceAllR(replacement, L'\\', L'/');
+}
+
+void KeywordReplacer::SetReplacement(const std::wstring_view& key, const std::wstring_view& replacement)
+{
+	std::wstring v_lowerKey(key);
+	std::wstring v_lowerVal(replacement);
+
+	KeywordReplacer::CreateKey(v_lowerKey, v_lowerVal);
+
+	m_KeyReplacements[std::move(v_lowerKey)] = std::move(v_lowerVal);
+}
+
+void KeywordReplacer::CreateContentKey(const SMUuid& uuid, const std::wstring_view& replacement)
+{
+	constexpr const std::wstring_view c_contentKey = L"$content_";
+
+	// $content_ + uuid (36 characters) + null terminator
+	wchar_t v_buffer[c_contentKey.size() + 36 + 1];
+	std::memcpy(v_buffer, c_contentKey.data(), c_contentKey.size() * sizeof(wchar_t));
+	uuid.toCStringW(v_buffer + c_contentKey.size());
+	v_buffer[(sizeof(v_buffer) / sizeof(wchar_t)) - 1] = 0;
+
+	KeywordReplacer::SetReplacement(std::wstring_view(v_buffer, sizeof(v_buffer) / sizeof(v_buffer[0]) - 1), replacement);
+}
+
+void KeywordReplacer::SetModData(const SMUuid& uuid, const std::wstring_view& path)
+{
+	KeywordReplacer::CreateContentKey(uuid, path);
+	KeywordReplacer::SetReplacement(L"$mod_data"    , path);
+	KeywordReplacer::SetReplacement(L"$content_data", path);
+}
+
+void KeywordReplacer::ClearModKeys()
+{
+	{
+		auto v_iter = m_KeyReplacements.find(std::wstring_view(L"$content_data"));
+		if (v_iter != m_KeyReplacements.end())
+			m_KeyReplacements.erase(v_iter);
+	}
+
+	{
+		auto v_iter = m_KeyReplacements.find(std::wstring_view(L"$mod_data"));
+		if (v_iter != m_KeyReplacements.end())
+			m_KeyReplacements.erase(v_iter);
+	}
+}
+
+void KeywordReplacer::LoadResourceUpgrades(const std::wstring& path)
+{
+	simdjson::dom::document v_doc;
+	if (!JsonReader::LoadParseSimdjsonCommentsC(path, v_doc, simdjson::dom::element_type::OBJECT))
+		return;
+
+	DebugOutL("Loading resource upgrades: ", 0b1101_fg, path);
+
+	const auto v_upgrade_array = v_doc.root()["upgrade"];
+	if (!v_upgrade_array.is_array()) return;
+
+	std::wstring v_keyWstr, v_valWstr;
+
+	for (const auto v_upgrade_list : v_upgrade_array.get_array().value_unsafe())
+	{
+		if (!v_upgrade_list.is_array()) continue;
+
+		for (const auto v_upgrade_obj : v_upgrade_list.get_array().value_unsafe())
+		{
+			if (!v_upgrade_obj.is_array()) continue;
+
+			const auto v_upgrade_obj_arr = v_upgrade_obj.get_array().value_unsafe();
+
+			const auto v_upgrade_key = v_upgrade_obj_arr.at(0);
+			const auto v_upgrade_val = v_upgrade_obj_arr.at(1);
+
+			if (!(v_upgrade_key.is_string() && v_upgrade_val.is_string())) continue;
+
+			String::ToWideRef(v_upgrade_key.get_string().value_unsafe(), v_keyWstr);
+			String::ToWideRef(v_upgrade_val.get_string().value_unsafe(), v_valWstr);
+
+			KeywordReplacer::CreateKey(v_keyWstr, v_valWstr);
+
+			if (m_ResourceUpgrades.find(v_keyWstr) == m_ResourceUpgrades.end())
+				m_ResourceUpgrades.emplace(std::move(v_keyWstr), std::move(v_valWstr));
+		}
+	}
+}
+
+void KeywordReplacer::LoadResourceUpgradesFromConfig()
+{
+	for (const auto& v_upgrade_path : DatabaseConfig::ResourceUpgradeFiles)
+		KeywordReplacer::LoadResourceUpgrades(v_upgrade_path);
+
+	// Nonor normal textures look weird in blender, so i'm just gonna skip em by replacing the string with nothing
+	m_ResourceUpgrades.emplace(std::wstring_view(L"$game_data/textures/nonor_nor.png"), std::wstring_view()).first->second = L"";
+	m_ResourceUpgrades.emplace(std::wstring_view(L"$game_data/textures/nonor_nor.tga"), std::wstring_view()).first->second = L"";
+}
+
+void KeywordReplacer::UpgradeResourceR(std::wstring& outPath)
+{
+	String::ToLowerR(outPath);
+	String::ReplaceAllR(outPath, L'\\', L'/');
+
+	const auto v_iter = m_ResourceUpgrades.find(outPath);
+	if (v_iter != m_ResourceUpgrades.end())
+		outPath.assign(v_iter->second);
+}
+
+void KeywordReplacer::UpgradeResource(const std::wstring& inputPath, std::wstring& outPath)
+{
+	outPath = inputPath;
+	KeywordReplacer::UpgradeResourceR(outPath);
+}
+
+void KeywordReplacer::ReplaceKeyR(std::wstring& path)
+{
+	if (path.empty() || path[0] != L'$')
+		return;
+
+	KeywordReplacer::UpgradeResourceR(path);
+
+	const wchar_t* v_keyBeg = path.data();
+	const wchar_t* v_keyPtr = std::wcschr(v_keyBeg, L'/');
+	if (v_keyPtr == nullptr) return;
+
+	const std::wstring_view v_keyChunk(v_keyBeg, v_keyPtr);
+
+	const auto v_iter = m_KeyReplacements.find(v_keyChunk);
+	if (v_iter == m_KeyReplacements.end()) return;
+
+	const auto v_pathBegin = path.begin();
+	path.replace(
+		v_pathBegin,
+		v_pathBegin + (v_keyPtr - v_keyBeg),
+		std::wstring_view(v_iter->second)
+	);
+}
+
+bool KeywordReplacer::ReplaceKeyRLua(std::wstring& path)
+{
+	if (path.empty() || path[0] != L'$')
+		return true;
+
+	KeywordReplacer::UpgradeResourceR(path);
+
+	const wchar_t* v_keyBeg = path.data();
+	const wchar_t* v_keyPtr = std::wcschr(v_keyBeg, L'/');
+	if (v_keyPtr == nullptr) return true;
+
+	const std::wstring_view v_keyChunk(v_keyBeg, v_keyPtr);
+
+	if (v_keyChunk == L"$content_data")
+	{
+		// Throw key error if $CONTENT_DATA doesn't exist
+		if (m_KeyReplacements.find(std::wstring_view(L"$content_data")) == m_KeyReplacements.end() &&
+			m_KeyReplacements.find(std::wstring_view(L"$mod_data")) == m_KeyReplacements.end())
+		{
+			return false;
+		}
+	}
+
+	const auto v_iter = m_KeyReplacements.find(v_keyChunk);
+	if (v_iter == m_KeyReplacements.end()) return true;
+
+	const auto v_pathBegin = path.begin();
+	path.replace(
+		v_pathBegin,
+		v_pathBegin + (v_keyPtr - v_keyBeg),
+		std::wstring_view(v_iter->second)
+	);
+
+	return true;
+}
+
+void KeywordReplacer::Initialize()
+{
+	DebugOutL(__FUNCTION__);
+
+	KeywordReplacer::Clear();
+	KeywordReplacer::LoadResourceUpgradesFromConfig();
+
+	for (const auto& v_kv_pair : DatabaseConfig::DefaultKeywords)
+		KeywordReplacer::SetReplacement(v_kv_pair.first, v_kv_pair.second);
+}
+
+void KeywordReplacer::Clear()
+{
+	DebugOutL(__FUNCTION__);
+
+	m_KeyReplacements.clear();
+	m_ResourceUpgrades.clear();
+}
