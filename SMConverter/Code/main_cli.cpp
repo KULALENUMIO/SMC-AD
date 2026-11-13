@@ -86,6 +86,12 @@ static void printBlueprintArguments(const bool printHeader)
 		DebugOutL("\nArguments for Blueprint converter:");
 
 	DebugOutL(0b1101_fg, "\t-applyrotations", 0b1110_fg, " - applies rotations from controllers to joints");
+	DebugOutL(0b1101_fg, "\t-optimizeblocks", 0b1110_fg, " - removes hidden faces between blocks and merges coplanar block faces (ignored with -septype all)");
+	DebugOutL(0b1101_fg, "	-gltf          ", 0b1110_fg, " - writes a self contained .glb (embedded textures, paint color + shape index per vertex) instead of .obj/.mtl");
+	DebugOutL(0b1101_fg, "	-cullhidden    ", 0b1110_fg, " - (with -gltf) removes faces that can't be seen from outside of each output object");
+	DebugOutL(0b1101_fg, "	-fixcoplanar   ", 0b1110_fg, " - (with -gltf) pushes back overlapping coplanar faces of smaller parts to stop z-fighting");
+	DebugOutL(0b1101_fg, "	-coplanaroffset", 0b1110_fg, " <mm> - distance per rank for -fixcoplanar (default 0.3)");
+	DebugOutL(0b1101_fg, "	-maxtexcompression", 0b1110_fg, " - (with -gltf) maximum PNG compression: ~6% smaller textures, conversion several times slower");
 	DebugOutL(0b1101_fg, "\t-septype", 0b1110_fg, " [none | all | shapes | joints | uuid | color | uuidandcolor] (default is none) - object separation type");
 	DebugOutL(0b1101_fg, "\t\tnone        ", 0b1110_fg, " - no object separation");
 	DebugOutL(0b1101_fg, "\t\tall         ", 0b1110_fg, " - puts every single shape into a unique group");

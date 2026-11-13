@@ -56,6 +56,7 @@ enum class EntityType : unsigned short
 	Body        = (1 << 9),
 	Kinematic   = (1 << 10),
 	Wedge       = (1 << 11),
+	MergedBlocks = (1 << 12), // Optimized geometry of many blocks (see BlockMesher)
 
 	//Is not used anywhere except the GroundTerrainData class
 	GroundTerrain = 0
@@ -103,6 +104,8 @@ public:
 	virtual void CalculateCenterPoint(glm::vec3& outInput) const;
 	virtual std::size_t GetAmountOfObjects() const;
 	virtual SMColor GetColor() const;
+	// physicsMaterial of the shape definition (empty when unknown)
+	virtual std::string_view GetPhysicsMaterial() const { return {}; }
 	// This option can help you to discard unwanted sub meshes (like shadow only sub meshes)
 	virtual bool GetCanWrite(const std::string_view& name, const std::size_t idx) const;
 

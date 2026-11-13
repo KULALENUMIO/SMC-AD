@@ -31,7 +31,7 @@ enum class ConverterActionFlag : std::uint16_t
 	List = ListBlueprints | ListTiles | ListWorlds | ListCustomGames
 };
 
-enum class ConverterExportSettings : std::uint16_t
+enum class ConverterExportSettings : std::uint32_t
 {
 	None = 0,
 
@@ -56,7 +56,12 @@ enum class ConverterExportSettings : std::uint16_t
 
 	// Blueprint settings
 
-	ApplyControllerRotations = (1 << 13)
+	ApplyControllerRotations = (1 << 13),
+	OptimizeBlocks           = (1 << 14),
+	ExportGltf               = (1 << 15),
+	CullHiddenFaces          = (1 << 16),
+	FixCoplanar              = (1 << 17),
+	MaxTextureCompression    = (1 << 18)
 };
 
 template<typename T>
@@ -161,6 +166,8 @@ struct ArgumentParser
 	bool argSepType();
 	// -customgameuuid
 	bool argCustomGameUuid();
+	// -coplanaroffset <mm>
+	bool argCoplanarOffset();
 
 	std::size_t m_argCount;
 	std::size_t m_curArg;
@@ -170,6 +177,7 @@ struct ArgumentParser
 	ConverterActionFlag m_actionFlags;
 	ConverterType m_convType;
 	std::uint8_t m_separationType;
+	float m_coplanarOffsetMm = 0.3f;
 	std::wstring m_itemPath;
 	std::wstring m_itemName;
 	SMUuid m_customGameUuid;

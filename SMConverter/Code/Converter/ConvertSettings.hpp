@@ -27,6 +27,18 @@ struct BlueprintConverterSettings
 {
 	inline static int SeparationType = 0;
 	inline static bool ApplyControllerPresets = false;
+	// See BlockOpt_* in Converter/BlockMesher/BlockMesher.hpp
+	inline static int BlockOptimization = 0;
+	// Write a self contained .glb instead of .obj/.mtl
+	inline static bool ExportGltf = false;
+	// Remove faces that can't be seen from outside of each output object (glTF export only)
+	inline static bool CullHiddenFaces = false;
+	// Push back overlapping coplanar faces of different parts to stop z-fighting (glTF export only)
+	inline static bool FixCoplanar = false;
+	// Distance per rank in metres (0.3 mm)
+	inline static float CoplanarOffset = 0.0003f;
+	// Texture PNG compression: false = zlib default (fast), true = maximum (~6% smaller, ~5x slower)
+	inline static bool MaxTextureCompression = false;
 
 private:
 	BlueprintConverterSettings() = default;

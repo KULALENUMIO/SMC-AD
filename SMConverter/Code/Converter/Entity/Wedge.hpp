@@ -25,6 +25,7 @@ public:
 
 	std::size_t GetIndex() const override;
 	SMColor GetColor() const override;
+	std::string_view GetPhysicsMaterial() const override;
 	EntityType Type() const override;
 	char* GetMtlNameCStr(const std::string_view& material, const std::size_t idx, char* pCString) const override;
 	std::string GetMtlName(const std::size_t idx) const override;

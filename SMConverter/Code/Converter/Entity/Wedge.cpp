@@ -198,3 +198,8 @@ glm::mat4 SMWedge::GetTransformMatrix() const
 
 	return v_transformMatrix;
 }
+
+std::string_view SMWedge::GetPhysicsMaterial() const
+{
+	return m_parentBlock->m_physicsMaterial;
+}

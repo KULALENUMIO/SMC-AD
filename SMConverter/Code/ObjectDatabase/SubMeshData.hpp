@@ -38,6 +38,8 @@ public:
 	std::string m_material;
 	std::string m_defColorIdx;
 	bool m_shadowOnly = false;
+	// "custom": { "metalProfile": ... } of the renderable (Painted, LowReflection, ...)
+	std::string m_metalProfile;
 };
 
 class SMC_NOVTABLE SMSubMeshBase

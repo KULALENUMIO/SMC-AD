@@ -1,0 +1,6 @@
+{
+    "name": "SMCAD.Runtime",
+    "rootNamespace": "SMCAD",
+    "references": [],
+    "autoReferenced": true
+}

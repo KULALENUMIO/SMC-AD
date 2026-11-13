@@ -27,6 +27,7 @@ enum : std::uint8_t
 class BlueprintConv
 {
 	static void WriteToFileInternal(SMBlueprint* pBlueprint, const std::wstring& blueprintName, ConvertError& error);
+	static void WriteGltf(SMBlueprint* pBlueprint, const std::wstring& blueprintName, const std::wstring& outputPath, const glm::vec3& centerPoint, ConvertError& error);
 
 	static SMBody* CreateCollection(SMBlueprint* self, const std::string_view& name);
 
@@ -54,6 +55,8 @@ private:
 	//Is used to group all the objects
 	inline static std::unordered_map<std::string, SMBody*, Hashing::StringHasher, std::equal_to<>> BodyGroupMap = {};
 	inline static std::unordered_map<std::size_t, SMBody*> BodyIndexMap = {};
+	// blueprint.json being converted (its description.json gives the blueprint's own name)
+	inline static std::wstring CurrentBlueprintPath = {};
 
 	BlueprintConv() = default;
 	BlueprintConv(const BlueprintConv&) = delete;

@@ -1,6 +1,9 @@
 #include "cli_parser.hpp"
 
+#include <cstdlib>
+
 #include "Converter/BlueprintConverter/BlueprintConverter.hpp"
+#include "Converter/BlockMesher/BlockMesher.hpp"
 #include "Converter/ConvertSettings.hpp"
 #include "Utils/String.hpp"
 
@@ -38,7 +41,13 @@ static ArgumentParserCallback g_callbacks[] =
 	// Blueprint specific settings
 
 	{ "-septype"       , &ArgumentParser::argSepType },
-	{ "-applyrotations", &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::ApplyControllerRotations> }
+	{ "-applyrotations", &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::ApplyControllerRotations> },
+	{ "-optimizeblocks", &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::OptimizeBlocks> },
+	{ "-gltf"          , &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::ExportGltf> },
+	{ "-cullhidden"    , &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::CullHiddenFaces> },
+	{ "-fixcoplanar"   , &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::FixCoplanar> },
+	{ "-coplanaroffset", &ArgumentParser::argCoplanarOffset },
+	{ "-maxtexcompression", &ArgumentParser::exportFlagSetter<ConverterType::Blueprint, ConverterExportSettings::MaxTextureCompression> }
 };
 
 ArgumentParser::ArgumentParser(
@@ -126,6 +135,20 @@ void ArgumentParser::applySettings() const
 	
 	BlueprintConverterSettings::ApplyControllerPresets = this->exportFlagSet(ConverterExportSettings::ApplyControllerRotations);
 	BlueprintConverterSettings::SeparationType = m_separationType;
+	BlueprintConverterSettings::BlockOptimization = this->exportFlagSet(ConverterExportSettings::OptimizeBlocks) ? BlockOpt_Merge : BlockOpt_None;
+	BlueprintConverterSettings::ExportGltf = this->exportFlagSet(ConverterExportSettings::ExportGltf);
+	BlueprintConverterSettings::CullHiddenFaces = this->exportFlagSet(ConverterExportSettings::CullHiddenFaces);
+	BlueprintConverterSettings::FixCoplanar = this->exportFlagSet(ConverterExportSettings::FixCoplanar);
+	BlueprintConverterSettings::CoplanarOffset = m_coplanarOffsetMm * 0.001f;
+	BlueprintConverterSettings::MaxTextureCompression = this->exportFlagSet(ConverterExportSettings::MaxTextureCompression);
+
+	// glTF always carries normals, uvs and materials (textures are embedded)
+	if (BlueprintConverterSettings::ExportGltf)
+	{
+		SharedConverterSettings::ExportMaterials = true;
+		SharedConverterSettings::ExportUvs = true;
+		SharedConverterSettings::ExportNormals = true;
+	}
 }
 
 bool ArgumentParser::argType()
@@ -236,6 +259,29 @@ bool ArgumentParser::argSepType()
 	}
 
 	m_actionFlags |= ConverterActionFlag::SepTypeSpecified;
+	return true;
+}
+
+bool ArgumentParser::argCoplanarOffset()
+{
+	if (remainingArgs() < 1)
+	{
+		AttachDebugConsole();
+		DebugOutL("Usage: -coplanaroffset <millimetres>");
+		return false;
+	}
+
+	m_curArg++;
+	char* v_end = nullptr;
+	const float v_value = std::strtof(m_ppArgs[m_curArg], &v_end);
+	if (v_end == m_ppArgs[m_curArg] || !(v_value > 0.0f) || v_value > 50.0f)
+	{
+		AttachDebugConsole();
+		DebugOutL("Invalid -coplanaroffset value (millimetres, 0 < value <= 50): ", m_ppArgs[m_curArg]);
+		return false;
+	}
+
+	m_coplanarOffsetMm = v_value;
 	return true;
 }
 

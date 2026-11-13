@@ -109,6 +109,13 @@ xcopy /y /d "$(SolutionDir)Dependencies\Assimp\DLL\assimp$(PlatformArchitecture)
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Code\cli_parser.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\GeometryCapture.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\HiddenFaceCuller.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\JointHierarchy.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\CoplanarFixer.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\TextureOptimizer.cpp" />
+    <ClCompile Include="Code\Converter\Gltf\GltfWriter.cpp" />
+    <ClCompile Include="Code\Converter\BlockMesher\BlockMesher.cpp" />
     <ClCompile Include="Code\Converter\BlueprintConverter\BlueprintConverter.cpp" />
     <ClCompile Include="Code\Converter\Entity\Asset.cpp" />
     <ClCompile Include="Code\Converter\Entity\Block.cpp" />
@@ -187,6 +194,13 @@ xcopy /y /d "$(SolutionDir)Dependencies\Assimp\DLL\assimp$(PlatformArchitecture)
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Code\cli_parser.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\GeometryCapture.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\HiddenFaceCuller.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\JointHierarchy.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\CoplanarFixer.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\TextureOptimizer.hpp" />
+    <ClInclude Include="Code\Converter\Gltf\GltfWriter.hpp" />
+    <ClInclude Include="Code\Converter\BlockMesher\BlockMesher.hpp" />
     <ClInclude Include="Code\Converter\BlueprintConverter\BlueprintConverter.hpp" />
     <ClInclude Include="Code\Converter\ConvertError.hpp" />
     <ClInclude Include="Code\Converter\ConvertSettings.hpp" />

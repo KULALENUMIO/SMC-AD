@@ -112,3 +112,8 @@ bool SMJoint::GetCanWrite(
 
 	return !v_pTexList->m_shadowOnly;
 }
+
+std::string_view SMJoint::GetPhysicsMaterial() const
+{
+	return m_parent->m_physicsMaterial;
+}

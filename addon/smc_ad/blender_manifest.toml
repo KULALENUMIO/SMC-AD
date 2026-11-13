@@ -1,0 +1,18 @@
+schema_version = "1.0.0"
+
+id = "smc_ad"
+version = "0.6.0"
+name = "SMC-AD"
+tagline = "SMConverter の glTF から Scrap Mechanic の機体を取り込む"
+maintainer = "SMC-AD Project"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 SMC-AD Project"]
+
+tags = ["Import-Export", "Material"]
+
+[permissions]
+files = "SMConverter の .glb の読み込みと、テクスチャの展開"

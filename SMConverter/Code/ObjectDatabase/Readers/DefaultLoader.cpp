@@ -26,12 +26,41 @@ void DefaultLoader::LoadTextureList(const simdjson::dom::array& texList, SMTextu
 	}
 }
 
+void DefaultLoader::LoadTextureMap(const simdjson::dom::object& texMap, SMTextureList* v_tex_list)
+{
+	// Slot order matches "textureList": 0 - dif, 1 - asg, 2 - nor
+	static const std::pair<std::string_view, int> v_keys[] =
+	{
+		{ "diffuse"  , 0 },
+		{ "asg"      , 1 },
+		{ "ags"      , 1 }, // used by a few game renderables
+		{ "normalMap", 2 }
+	};
+
+	for (const auto& [v_key, v_slot] : v_keys)
+	{
+		const auto v_curItem = texMap[v_key];
+		if (!v_curItem.is_string()) continue;
+
+		std::wstring& v_wstrPath = v_tex_list->getStringRef(v_slot);
+		if (!v_wstrPath.empty()) continue;
+
+		const std::string_view v_path = v_curItem.get_string().value_unsafe();
+		if (v_path.empty()) continue;
+
+		String::ToWideRef(v_path, v_wstrPath);
+		KeywordReplacer::ReplaceKeyR(v_wstrPath);
+	}
+}
+
 bool DefaultLoader::LoadSubMeshDataEntry(const simdjson::dom::element& v_item, SMTextureList** v_sub_mesh)
 {
 	const auto v_material = v_item["material"];
 	const auto v_tex_list_obj = v_item["textureList"];
+	// Newer renderables use "textures": { "diffuse": ..., "asg": ..., "normalMap": ... } instead of "textureList"
+	const auto v_tex_map_obj = v_item["textures"];
 
-	if (!(v_material.is_string() && v_tex_list_obj.is_array()))
+	if (!(v_material.is_string() && (v_tex_list_obj.is_array() || v_tex_map_obj.is_object())))
 		return false;
 
 	SMTextureList* v_newEntry = new SMTextureList();
@@ -47,9 +76,16 @@ bool DefaultLoader::LoadSubMeshDataEntry(const simdjson::dom::element& v_item, S
 		const auto v_shadow_only_mode = v_customProp["shadowOnly"];
 		if (v_shadow_only_mode.is_bool())
 			v_newEntry->m_shadowOnly = v_shadow_only_mode.get_bool().value_unsafe();
+
+		const auto v_metal_profile = v_customProp["metalProfile"];
+		if (v_metal_profile.is_string())
+			v_newEntry->m_metalProfile.assign(v_metal_profile.get_string().value_unsafe());
 	}
 
-	DefaultLoader::LoadTextureList(v_tex_list_obj.get_array().value_unsafe(), v_newEntry);
+	if (v_tex_list_obj.is_array())
+		DefaultLoader::LoadTextureList(v_tex_list_obj.get_array().value_unsafe(), v_newEntry);
+	else
+		DefaultLoader::LoadTextureMap(v_tex_map_obj.get_object().value_unsafe(), v_newEntry);
 
 	(*v_sub_mesh) = v_newEntry;
 	return true;

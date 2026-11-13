@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "smc_ad_plus_surfaces"
+version = "0.3.0"
+name = "SMC-AD+ Surfaces"
+tagline = "SMC-AD のマテリアルに材質（金属・ゴム・プラスチックなど）を付ける"
+maintainer = "SMC-AD Project"
+type = "add-on"
+
+# Requires the SMC-AD core extension (id smc_ad, 0.5.0 or later) to be enabled first.
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 SMC-AD Project"]
+
+tags = ["Material"]
+
+[permissions]
+files = "材質のプリセット（JSON）の読み書き"

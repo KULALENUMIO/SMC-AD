@@ -8,7 +8,8 @@ SMTextureList::SMTextureList(SMTextureList&& other) noexcept :
 	m_nor(std::move(other.m_nor)),
 	m_material(std::move(other.m_material)),
 	m_defColorIdx(std::move(other.m_defColorIdx)),
-	m_shadowOnly(other.m_shadowOnly)
+	m_shadowOnly(other.m_shadowOnly),
+	m_metalProfile(std::move(other.m_metalProfile))
 {}
 
 void SMTextureList::operator=(const SMTextureList& other)
@@ -19,6 +20,7 @@ void SMTextureList::operator=(const SMTextureList& other)
 	m_material = other.m_material;
 	m_defColorIdx = other.m_defColorIdx;
 	m_shadowOnly = other.m_shadowOnly;
+	m_metalProfile = other.m_metalProfile;
 }
 
 void SMTextureList::operator=(SMTextureList&& other) noexcept
@@ -29,6 +31,7 @@ void SMTextureList::operator=(SMTextureList&& other) noexcept
 	m_material = std::move(other.m_material);
 	m_defColorIdx = std::move(other.m_defColorIdx);
 	m_shadowOnly = other.m_shadowOnly;
+	m_metalProfile = std::move(other.m_metalProfile);
 }
 
 std::wstring& SMTextureList::getStringRef(std::size_t idx) noexcept

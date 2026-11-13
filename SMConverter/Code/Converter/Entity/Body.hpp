@@ -15,6 +15,8 @@ SM_UNMANAGED_CODE
 
 class SMBody : public SMEntity
 {
+	friend class BlockMesher;
+
 public:
 	SMBody(const std::string_view& name);
 	~SMBody();
@@ -30,6 +32,9 @@ public:
 
 	void CalculateCenterPoint(glm::vec3& outInput) const override;
 	std::size_t GetAmountOfObjects() const override;
+
+	inline const std::string& GetName() const noexcept { return m_bodyName; }
+	inline const std::vector<SMEntity*>& GetObjects() const noexcept { return m_objects; }
 
 	void ApplyPreTransformByBodyMap(
 		const std::unordered_map<std::size_t, glm::mat4>& bodyTransforms,

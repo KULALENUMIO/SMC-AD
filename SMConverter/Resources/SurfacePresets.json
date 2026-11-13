@@ -1,0 +1,14 @@
+{
+	"version": 1,
+	"description": "SMC-AD surface presets. Shared by SMConverter (embedded in .glb), the Blender add-on and the Unity package. roughness = clamp((1 - Asg.a) * roughness_scale + roughness_offset); metallic applies to unpainted texture areas (Dif.a = 1), paint_metallic to painted areas.",
+	"surfaces": {
+		"standard":      { "label": "標準（SM）",           "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 1.0, "roughness_offset": 0.0,  "specular": 1.0,  "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.0,  "noise_scale": 10.0 },
+		"metal_painted": { "label": "塗装金属",             "metallic": 0.85, "paint_metallic": 0.0, "roughness_scale": 0.9, "roughness_offset": 0.05, "specular": 1.0,  "coat": 0.35, "coat_roughness": 0.08, "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.1,  "noise_scale": 8.0 },
+		"metal_bare":    { "label": "地金（むき出し金属）", "metallic": 1.0,  "paint_metallic": 0.9, "roughness_scale": 0.8, "roughness_offset": 0.1,  "specular": 1.0,  "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.15, "noise_scale": 12.0 },
+		"rubber":        { "label": "ゴム",                 "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 0.3, "roughness_offset": 0.65, "specular": 0.35, "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.2, "tint": [0.85, 0.85, 0.85], "tint_strength": 0.2, "noise": 0.2,  "noise_scale": 20.0 },
+		"plastic":       { "label": "プラスチック",         "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 0.8, "roughness_offset": 0.12, "specular": 1.0,  "coat": 0.1,  "coat_roughness": 0.15, "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.05, "noise_scale": 10.0 },
+		"wood":          { "label": "木",                   "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 0.6, "roughness_offset": 0.35, "specular": 0.5,  "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.1,  "noise_scale": 6.0 },
+		"stone":         { "label": "石・コンクリート",     "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 0.4, "roughness_offset": 0.5,  "specular": 0.4,  "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.25, "noise_scale": 15.0 },
+		"glass":         { "label": "ガラス",               "metallic": 0.0,  "paint_metallic": 0.0, "roughness_scale": 1.0, "roughness_offset": 0.0,  "specular": 1.0,  "coat": 0.0,  "coat_roughness": 0.1,  "normal_strength": 1.0, "tint": [1.0, 1.0, 1.0],    "tint_strength": 0.0, "noise": 0.0,  "noise_scale": 10.0 }
+	}
+}

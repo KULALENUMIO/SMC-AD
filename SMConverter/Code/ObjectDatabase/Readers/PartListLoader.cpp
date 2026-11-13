@@ -127,6 +127,17 @@ void PartListLoader::Load(const simdjson::dom::element& fParts, SMMod* mod, bool
 			mod
 		);
 
+		if (v_prt["bearing"].is_object())
+			v_new_part->m_jointType = PartData::Joint_Bearing;
+		else if (v_prt["piston"].is_object())
+			v_new_part->m_jointType = PartData::Joint_Piston;
+		else if (v_prt["spring"].is_object())
+			v_new_part->m_jointType = PartData::Joint_Spring;
+
+		const auto v_physMat = v_prt["physicsMaterial"];
+		if (v_physMat.is_string())
+			v_new_part->m_physicsMaterial.assign(v_physMat.get_string().value_unsafe());
+
 		(mod->m_Parts.*v_adder_func)(v_new_part);
 		ProgCounter::ProgressValue++;
 	}
