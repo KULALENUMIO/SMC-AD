@@ -5,6 +5,9 @@
 
 #include "SMCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#if defined(_SMCAD_DETAILS)
+#include "SMDetails.hlsl"
+#endif
 
 struct SMAttributes
 {
@@ -13,6 +16,13 @@ struct SMAttributes
     float4 tangentOS  : TANGENT;
     float2 uv         : TEXCOORD0;
     float2 shape      : TEXCOORD2;   // x = SM part id (_SM_SHAPE), y = body random
+    float2 atlas      : TEXCOORD3;   // x = row of the material table (atlas mode)
+#if defined(_SMCAD_DETAILS)
+    float4 edgeConvex : TEXCOORD4;   // SMC-DETAILS: distance to the triangle's convex edges
+    float3 restPos    : TEXCOORD5;   // SMC-DETAILS: rest-pose position
+    float3 restNormal : TEXCOORD6;   // SMC-DETAILS: rest-pose normal
+    float3 edgeConcave : TEXCOORD7;  // SMC-DETAILS: distance to the triangle's concave edges
+#endif
     half4  color      : COLOR;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
@@ -28,7 +38,13 @@ struct SMVaryings
     float3 positionOS : TEXCOORD5;
     half3  normalOS   : TEXCOORD6;
     half   fogFactor  : TEXCOORD7;
-    nointerpolation float2 shape : TEXCOORD8;
+    nointerpolation float3 shape : TEXCOORD8;   // part id, body random, atlas row
+#if defined(_SMCAD_DETAILS)
+    float3 restPos    : TEXCOORD9;
+    float3 restNormal : TEXCOORD10;
+    float3 edgeConvex : TEXCOORD11;
+    float3 edgeConcave : TEXCOORD12;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -52,7 +68,13 @@ SMVaryings SMForwardVert(SMAttributes input)
     o.positionOS = input.positionOS.xyz;
     o.normalOS = input.normalOS;
     o.fogFactor = ComputeFogFactor(vpi.positionCS.z);
-    o.shape = input.shape;
+    o.shape = float3(input.shape, input.atlas.x);
+#if defined(_SMCAD_DETAILS)
+    o.restPos = input.restPos;
+    o.restNormal = input.restNormal;
+    o.edgeConvex = input.edgeConvex.xyz;
+    o.edgeConcave = input.edgeConcave;
+#endif
     return o;
 }
 
@@ -67,9 +89,10 @@ half4 SMForwardFrag(SMVaryings input, FRONT_FACE_TYPE face : FRONT_FACE_SEMANTIC
     half cutout = SMCutoutAlpha(dif, asg);
     if (_AlphaMode > 0.5h) clip(cutout - _Cutoff);
 
+    SMParams p = SMGetParams(input.shape.z);
     half3 paint = input.color.rgb;
     half3 difRgb = dif.rgb;
-    SMApplyOverride(paint, difRgb, input.positionOS, input.normalOS, input.uv);
+    SMApplyOverride(paint, difRgb, input.positionOS, input.normalOS, input.uv, p);
     half texMask = SMPaintMask(dif);
     half3 albedo = lerp(paint, difRgb, texMask);
 
@@ -103,8 +126,8 @@ half4 SMForwardFrag(SMVaryings input, FRONT_FACE_TYPE face : FRONT_FACE_SEMANTIC
     float3 baseColor = albedo;
     float metallic = 0.0;
     float roughness = 1.0 - asg.a;
-    float specular = asg.g * _SpecularMul;                 // Principled "Specular IOR Level"
-    float emissionStrength = saturate((asg.b - 0.15h) / 0.85h) * _GlowMul;
+    float specular = asg.g * p.specularMul;                 // Principled "Specular IOR Level"
+    float emissionStrength = saturate((asg.b - 0.15h) / 0.85h) * p.glowMul;
 
     SMMasks masks;
     masks.tex = texMask;
@@ -114,16 +137,16 @@ half4 SMForwardFrag(SMVaryings input, FRONT_FACE_TYPE face : FRONT_FACE_SEMANTIC
     masks.upFacing = max(geomNormalWS.y, 0.0);
 
     // ---- surface type (SMC+_SurfaceCore)
-    if (_SfEnabled > 0.5h)
+    if (p.sfEnabled > 0.5h)
     {
-        baseColor = lerp(baseColor, baseColor * _SfTint.rgb, _SfTintStrength);
-        metallic = max(metallic, lerp(_SfTexMetallic, _SfPaintMetallic, masks.paint));
-        float noise = _SfNoise > 0.0h ? SMNoiseFac(SMBlenderObjectPos(input.positionOS) * _SfNoiseScale) : 0.5;
-        roughness = saturate(roughness * _SfRoughScale + _SfRoughOffset + (noise - 0.5) * _SfNoise);
-        specular *= _SfSpecMul;
-        normalWS = normalize(geomNormalWS + (normalWS - geomNormalWS) * _SfNormalStrength);
-        surface.clearCoatMask = _SfCoat;
-        surface.clearCoatSmoothness = 1.0h - _SfCoatRough;
+        baseColor = lerp(baseColor, baseColor * p.sfTint, p.sfTintStrength);
+        metallic = max(metallic, lerp(p.sfTexMetallic, p.sfPaintMetallic, masks.paint));
+        float noise = p.sfNoise > 0.0h ? SMNoiseFac(SMBlenderObjectPos(input.positionOS) * p.sfNoiseScale) : 0.5;
+        roughness = saturate(roughness * p.sfRoughScale + p.sfRoughOffset + (noise - 0.5) * p.sfNoise);
+        specular *= p.sfSpecMul;
+        normalWS = normalize(geomNormalWS + (normalWS - geomNormalWS) * p.sfNormalStrength);
+        surface.clearCoatMask = p.sfCoat;
+        surface.clearCoatSmoothness = 1.0h - p.sfCoatRough;
     }
     float3 emissionColor = baseColor;  // Blender: Emission Color is wired before the hand-made layers
 
@@ -135,6 +158,15 @@ half4 SMForwardFrag(SMVaryings input, FRONT_FACE_TYPE face : FRONT_FACE_SEMANTIC
     emissionStrength = SMLayer(emissionStrength.xxxx, _LEmisOp, _LEmisA, _LEmisB, _LEmisF, masks).x;
     metallic = saturate(metallic);
     roughness = saturate(roughness);
+
+    // ---- wear and dirt (SMC-DETAILS): last, right before the BSDF as in Blender
+#if defined(_SMCAD_DETAILS)
+    float3 detailNormal = normalWS;
+    SMApplyDetails(input.restPos, input.restNormal, input.edgeConvex, input.edgeConcave, masks.paint, masks.partRandom, input.positionWS, facing, baseColor, metallic, roughness, detailNormal);
+    normalWS = detailNormal;
+    metallic = saturate(metallic);
+    roughness = saturate(roughness);
+#endif
 
     // ---- Principled BSDF -> URP specular setup
     // Blender "Specular IOR Level" 0.5 == F0 0.04, so F0 = 0.08 * specular; metals take F0 from the base colour

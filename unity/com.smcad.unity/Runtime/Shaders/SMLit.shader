@@ -58,7 +58,57 @@ Shader "SMC-AD/SM Lit"
         _LEmisB ("発光：B", Vector) = (0, 0, 0, 0)
         _LEmisF ("発光：係数", Float) = 0
 
+        [Toggle(_SMCAD_DETAILS)] _SmdEnabled ("汚しを使う", Float) = 0
+        [NoScaleOffset] _SmdGeo ("形の情報（3D）", 3D) = "" {}
+        [NoScaleOffset] _SmdNoise ("模様（3D）", 3D) = "" {}
+        [NoScaleOffset] _SmdPaint0 ("手描き：塗装ハゲ・傷・錆・くすみ（3D）", 3D) = "" {}
+        [NoScaleOffset] _SmdPaint1 ("手描き：泥・土・砂・濡れ（3D）", 3D) = "" {}
+        _SmdGridMin ("格子の始点", Vector) = (0, 0, 0, 0)
+        _SmdGridInv ("格子の大きさの逆数", Vector) = (1, 1, 1, 0)
+        _SmdAmount0 ("量：塗装ハゲ・傷・錆・くすみ", Vector) = (0.35, 0.2, 0.15, 0.4)
+        _SmdAmount1 ("量：泥・土・砂・濡れ", Vector) = (0.4, 0.3, 0.2, 0)
+        _SmdScale0 ("模様の細かさ：塗装ハゲ・傷・錆・くすみ", Vector) = (6, 3, 4, 3)
+        _SmdScale1 ("模様の細かさ：泥・土・砂", Vector) = (5, 2, 6, 1)
+        _SmdHeights ("地面からの高さ：泥・土・砂、地面", Vector) = (0.6, 1.2, 0.3, 0)
+        _SmdGen0 ("角の強さ、くぼみの強さ、近い/遠い調べ位置(m)", Vector) = (4, 4, 0.03, 0.12)
+        _SmdGen1 ("細かい模様の倍率、境目のぼかし、手描きあり、乱数", Vector) = (1, 0.06, 0, 0)
+        _SmdView ("表示（0 = 仕上がり）", Float) = 0
+        _SmdEdge ("角の幅(m)、へこんだ角の幅(m)、角のデータあり", Vector) = (0.03, 0.04, 0, 0)
+        _SmdKick ("履帯の巻き上げ：範囲(m)、量", Vector) = (0.6, 0.8, 0, 0)
+        _SmdBurn ("焦げ・すすの量", Vector) = (1, 0, 0, 0)
+        _SmdBurnColor ("焦げ・すす（リニアRGB）", Vector) = (0.015, 0.013, 0.012, 1)
+        [HideInInspector] _SmdTrackMin0 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdTrackMax0 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdTrackMin1 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdTrackMax1 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcP0 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcP1 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcP2 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcP3 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcD0 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcD1 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcD2 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdSrcD3 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdLinkSeed ("", Float) = 0
+        [HideInInspector] _SmdBase0 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdBase1 ("", Vector) = (0, 0, 0, 0)
+        [HideInInspector] _SmdBase2 ("", Vector) = (1.5, 12, 0.5, 3)
+        _SmdStrength0 ("強さ：塗装ハゲ・傷・錆・くすみ", Vector) = (1, 1, 1, 1)
+        _SmdStrength1 ("強さ：泥・土・砂・濡れ", Vector) = (1, 1, 1, 1)
+        _SmdPrimer ("下地（プライマー、リニアRGB）", Vector) = (0.32, 0.12, 0.07, 1)
+        _SmdMetal ("地金（リニアRGB）", Vector) = (0.45, 0.45, 0.46, 1)
+        _SmdRustA ("錆・明るい（リニアRGB）", Vector) = (0.38, 0.13, 0.04, 1)
+        _SmdRustB ("錆・濃い（リニアRGB）", Vector) = (0.12, 0.05, 0.025, 1)
+        _SmdGrime ("くすみ・すす（リニアRGB）", Vector) = (0.18, 0.15, 0.12, 1)
+        _SmdMud ("泥（リニアRGB）", Vector) = (0.09, 0.065, 0.045, 1)
+        _SmdSoil ("土（リニアRGB）", Vector) = (0.25, 0.18, 0.12, 1)
+        _SmdSand ("砂（リニアRGB）", Vector) = (0.55, 0.45, 0.32, 1)
+        _SmdParams0 ("ざらつき：地金・錆・泥、塗装していない所の塗装ハゲ", Vector) = (0.35, 0.9, 0.7, 0.3)
+        _SmdParams1 ("濡れた所の明るさ、凹凸の強さ、凹凸の深さ(m)", Vector) = (0.55, 0.6, 0.004, 0)
+
         [HideInInspector] _Transparency ("透明度", Float) = 0
+        [HideInInspector][NoScaleOffset] _SMParams ("アトラスの設定表", 2D) = "black" {}
+        [HideInInspector][Toggle(_SMCAD_ATLAS)] _SMAtlas ("アトラス", Float) = 0
     }
 
     SubShader
@@ -90,6 +140,8 @@ Shader "SMC-AD/SM Lit"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma shader_feature_local_fragment _CLEARCOAT
+            #pragma shader_feature_local _SMCAD_ATLAS
+            #pragma shader_feature_local _SMCAD_DETAILS
 
             #define _SPECULAR_SETUP 1
             #include "SMForward.hlsl"

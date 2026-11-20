@@ -12,7 +12,7 @@ Shading model ported from SM-Converter-Plugin by QuestionableM (MIT License).
 
 import bpy
 
-from . import api, batch, bodies, convert, export, export_fbx, export_ops, importer, override_ops, overrides, reset, ui  # noqa: F401 (api: for SMC-AD+ extensions)
+from . import api, batch, bodies, convert, export, export_fbx, export_ops, importer, mirror, override_ops, overrides, reset, ui  # noqa: F401 (api: for SMC-AD+ extensions)
 
 _classes = (
     *convert.classes,
@@ -30,6 +30,7 @@ _classes = (
     bodies.SMCAD_OT_detach_body,
     bodies.SMCAD_OT_delete_body,
     bodies.SMCAD_OT_restore_body,
+    *mirror.classes,
     *ui.classes,
 )
 

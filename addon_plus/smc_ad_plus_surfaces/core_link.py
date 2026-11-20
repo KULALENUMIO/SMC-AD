@@ -9,7 +9,8 @@ _core = None
 def find():
     """The core package (smc_ad) when it is loaded and offers the extension API, else None."""
     global _core
-    if _core is not None and getattr(_core, "api", None) is not None and _core.__name__ in sys.modules:
+    # the same module object, not just the same name: after the core is reinstalled the old one is stale
+    if _core is not None and getattr(_core, "api", None) is not None and sys.modules.get(_core.__name__) is _core:
         return _core
     _core = None
     for name, module in list(sys.modules.items()):

@@ -241,6 +241,17 @@ def classify_channel(bsdf_input, kind):
         return {"op": "constant", "a": _const(bsdf_input)}
     link = bsdf_input.links[0]
     node = link.from_node
+    # extension nodes that only modify the wire (e.g. SMC-DETAILS): look through them
+    seen = 0
+    while node.get("smcad_passthrough") and seen < 8:
+        inp = next((s for s in node.inputs if s.name == link.from_socket.name), None)
+        if inp is None:
+            break
+        if not inp.is_linked:
+            return {"op": "constant", "a": _const(inp)}
+        link = inp.links[0]
+        node = link.from_node
+        seen += 1
     if _is_layer_source(node):
         return None
     if node.bl_idname in ("ShaderNodeValue", "ShaderNodeRGB"):

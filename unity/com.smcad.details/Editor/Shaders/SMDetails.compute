@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+// SMC-DETAILS GPU work: visibility grid (shape), 3D brush, paint load.
+#pragma kernel Accumulate
+#pragma kernel Stamp
+#pragma kernel LoadPaint
+#pragma kernel ClearPaint
+#pragma kernel ResetChannel
+
+// ---- visibility: for each grid point, count the directions from which it is in front of the nearest surface
+Texture2D<float> _Depth;
+RWStructuredBuffer<float> _Acc;
+uint3 _Dims;
+float3 _GridMin;
+float _Voxel;
+float3 _Center, _Right, _Up, _Fwd;
+float _Radius;
+int _Res;
+float _Eps;
+float _FlipY;
+
+[numthreads(4, 4, 4)]
+void Accumulate(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _Dims)) return;
+    float3 x = _GridMin + (float3(id) + 0.5) * _Voxel - _Center;
+    float px = dot(x, _Right) / _Radius * 0.5 + 0.5;
+    float py = dot(x, _Up) / _Radius * 0.5 + 0.5;
+    if (_FlipY > 0.5) py = 1.0 - py;   // D3D-style render targets: row 0 is at the top
+    int2 t = clamp(int2(px * _Res, py * _Res), 0, _Res - 1);
+    float d = dot(x, _Fwd) + _Radius;
+    uint idx = id.x + _Dims.x * (id.y + _Dims.y * id.z);
+    if (d < _Depth[t] + _Eps) _Acc[idx] += 1.0;
+}
+
+// ---- 3D brush on a paint grid (0.5 = no change)
+RWTexture3D<float4> _Paint;
+Texture3D<float4> _Source;
+uint3 _PaintDims;
+float3 _PaintMin;
+float _PaintVoxel;
+int3 _Offset;
+float3 _BrushPos;
+float _BrushRadius;
+float _BrushAmount;   // + adds, - removes
+float _BrushReset;    // 1 = move towards 0.5
+float4 _ChannelMask;
+
+[numthreads(4, 4, 4)]
+void Stamp(uint3 tid : SV_DispatchThreadID)
+{
+    int3 id = int3(tid) + _Offset;
+    if (any(id < 0) || any(id >= int3(_PaintDims))) return;
+    float3 p = _PaintMin + (float3(id) + 0.5) * _PaintVoxel;
+    float r = length(p - _BrushPos) / _BrushRadius;
+    if (r >= 1.0) return;
+    float f = 1.0 - r * r;
+    f = f * f;
+    float4 v = _Paint[id];
+    float4 target = _BrushReset > 0.5 ? float4(0.5, 0.5, 0.5, 0.5) : saturate(v + _BrushAmount);
+    float4 k = _ChannelMask * f * (_BrushReset > 0.5 ? abs(_BrushAmount) : 1.0);
+    _Paint[id] = lerp(v, target, saturate(k));
+}
+
+[numthreads(4, 4, 4)]
+void LoadPaint(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _PaintDims)) return;
+    _Paint[id] = _Source[id];
+}
+
+[numthreads(4, 4, 4)]
+void ClearPaint(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _PaintDims)) return;
+    _Paint[id] = float4(0.5, 0.5, 0.5, 0.5);
+}
+
+// every voxel of the masked channels back to 0.5 (no change)
+[numthreads(4, 4, 4)]
+void ResetChannel(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _PaintDims)) return;
+    _Paint[id] = lerp(_Paint[id], float4(0.5, 0.5, 0.5, 0.5), _ChannelMask);
+}

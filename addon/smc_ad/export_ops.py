@@ -2,7 +2,7 @@
 import os
 
 import bpy
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy_extras.io_utils import ExportHelper
 
 from . import batch, export, export_fbx
@@ -93,10 +93,25 @@ class SMCAD_OT_export_unity_fbx(bpy.types.Operator, ExportHelper):
     filename_ext = ".fbx"
     filter_glob: StringProperty(default="*.fbx", options={"HIDDEN"})
     open_report: BoolProperty(name="書き出し結果を表示", description="持っていけないものの一覧を、書き出した後に表示します", default=True)
+    use_atlas: BoolProperty(
+        name="量産向け（テクスチャを1枚にまとめる）",
+        description="ほとんどのマテリアルのテクスチャを1枚のアトラスにまとめ、マテリアルとドローコールを減らします。"
+                    "Blender の中のマテリアルは変わりません。繰り返して貼っている面・ガラス・切り抜きは別のまま",
+        default=False)
+    atlas_max: EnumProperty(
+        name="アトラスの最大サイズ", items=(("1024", "1024", ""), ("2048", "2048", ""), ("4096", "4096", "")), default="2048")
 
     @classmethod
     def poll(cls, context):
         return _blueprint_root(context) is not None
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "open_report")
+        layout.prop(self, "use_atlas")
+        row = layout.row()
+        row.enabled = self.use_atlas
+        row.prop(self, "atlas_max")
 
     def invoke(self, context, event):
         root = _blueprint_root(context)
@@ -113,7 +128,8 @@ class SMCAD_OT_export_unity_fbx(bpy.types.Operator, ExportHelper):
         if context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
         try:
-            report, n_objects, n_materials, n_textures = export_fbx.export_fbx(context, root, self.filepath)
+            report, n_objects, n_materials, n_textures = export_fbx.export_fbx(
+                context, root, self.filepath, use_atlas=self.use_atlas, atlas_max=int(self.atlas_max))
         except (OSError, RuntimeError, ValueError) as ex:
             self.report({"ERROR"}, str(ex))
             return {"CANCELLED"}

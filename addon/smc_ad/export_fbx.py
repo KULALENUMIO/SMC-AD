@@ -22,7 +22,7 @@ import bpy
 import numpy as np
 from mathutils import Vector
 
-from . import api, batch, bodies, export
+from . import api, atlas as atlas_mod, batch, bodies, export
 
 PROPERTY = "smcad_unity"
 PART_UV = "SM_Part"
@@ -108,15 +108,8 @@ def _override_data(material, tex_dir, folder_name, cache, report):
     return data
 
 
-def material_data(material, tex_dir, folder_name, cache, report):
-    tree = material.node_tree
-    nodes = tree.nodes if tree is not None else {}
-    textures = {}
-    for role, node_name in (("dif", "SMC.Tex.Dif"), ("asg", "SMC.Tex.Asg"), ("nor", "SMC.Tex.Nor")):
-        node = nodes.get(node_name) if tree is not None else None
-        rel = _write_texture(node.image if node is not None else None, role, tex_dir, folder_name, cache)
-        if rel:
-            textures[role] = rel
+def material_smcad(material, tex_dir, folder_name, cache, report):
+    """The "smcad" part of a material's export data (colour override, layers, extensions)."""
     smcad = {}
     ov = _override_data(material, tex_dir, folder_name, cache, report)
     if ov:
@@ -129,6 +122,20 @@ def material_data(material, tex_dir, folder_name, cache, report):
             hook(material, smcad, report)
         except Exception as ex:  # noqa: BLE001
             report.add("warning", material.name, "拡張機能の書き出しでエラー: %s" % ex)
+    return smcad
+
+
+def material_data(material, tex_dir, folder_name, cache, report, smcad=None):
+    tree = material.node_tree
+    nodes = tree.nodes if tree is not None else {}
+    textures = {}
+    for role, node_name in (("dif", "SMC.Tex.Dif"), ("asg", "SMC.Tex.Asg"), ("nor", "SMC.Tex.Nor")):
+        node = nodes.get(node_name) if tree is not None else None
+        rel = _write_texture(node.image if node is not None else None, role, tex_dir, folder_name, cache)
+        if rel:
+            textures[role] = rel
+    if smcad is None:
+        smcad = material_smcad(material, tex_dir, folder_name, cache, report)
     return {"sm_shader": int(material.get("sm_shader", 1)), "textures": textures, "smcad": smcad}
 
 
@@ -139,7 +146,8 @@ def _to_unity(v):
 
 def body_data(obj):
     data = {"sm_body": int(obj["sm_body"]), "root": bool(obj.get("sm_root", False)),
-            "connected": bool(obj.get("sm_connected", True)), "part_uv": PART_UV in obj.data.uv_layers}
+            "connected": bool(obj.get("sm_connected", True)), "part_uv": PART_UV in obj.data.uv_layers,
+            "uv_layers": [uv.name for uv in obj.data.uv_layers]}
     joint = obj.get("sm_joint")
     if joint is not None:
         axis = (obj.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
@@ -153,26 +161,48 @@ def body_data(obj):
 # Part ids as UVs (temporary, removed after the export)
 # --------------------------------------------------------------------------------------------
 
-def _add_part_uv(mesh):
+def _add_part_uv(mesh, rows=None):
+    """u = part id, v = atlas row (when the mesh is in a texture atlas)."""
     attr = mesh.attributes.get(export.SHAPE_ATTRIBUTE)
-    if attr is None or PART_UV in mesh.uv_layers or len(mesh.loops) == 0:
+    if (attr is None and rows is None) or PART_UV in mesh.uv_layers or len(mesh.loops) == 0:
         return False
-    values = np.empty(len(attr.data), dtype=np.float32)
-    attr.data.foreach_get("value", values)
-    if attr.domain == "POINT":
+    if attr is None:
+        per_loop = np.zeros(len(mesh.loops), dtype=np.float32)
+    elif attr.domain == "POINT":
+        values = np.empty(len(attr.data), dtype=np.float32)
+        attr.data.foreach_get("value", values)
         loop_vert = np.empty(len(mesh.loops), dtype=np.int64)
         mesh.loops.foreach_get("vertex_index", loop_vert)
         per_loop = values[loop_vert]
     elif attr.domain == "CORNER":
-        per_loop = values
+        per_loop = np.empty(len(attr.data), dtype=np.float32)
+        attr.data.foreach_get("value", per_loop)
     else:
         return False
     active = mesh.uv_layers.active
+    active_name = active.name if active is not None else None
+    # Unity reads the part ids from FBX UV channel 1: UV layers after the first (e.g. SMC-DETAILS, lightmap UVs)
+    # move behind the part id layer for the export (same data; _remove_part_uv puts the order back)
+    extras = []
+    for layer in list(mesh.uv_layers)[1:]:
+        buf = np.empty(len(mesh.loops) * 2, dtype=np.float32)
+        layer.data.foreach_get("uv", buf)
+        extras.append((layer.name, buf))
+    for name, _buf in extras:
+        mesh.uv_layers.remove(mesh.uv_layers[name])
     uv = mesh.uv_layers.new(name=PART_UV, do_init=False)
+    for name, buf in extras:
+        layer = mesh.uv_layers.new(name=name, do_init=False)
+        if layer is not None:
+            layer.data.foreach_set("uv", buf)
+    if active_name is not None:
+        active = mesh.uv_layers.get(active_name)
     if uv is None:
         return False
     data = np.zeros(len(mesh.loops) * 2, dtype=np.float32)
     data[0::2] = per_loop
+    if rows is not None:
+        data[1::2] = rows
     uv.data.foreach_set("uv", data)
     if active is not None:
         mesh.uv_layers.active = active
@@ -190,8 +220,9 @@ def _remove_part_uv(mesh):
 # Export
 # --------------------------------------------------------------------------------------------
 
-def export_fbx(context, root, filepath):
-    """Writes the FBX + textures. Returns the Report."""
+def export_fbx(context, root, filepath, use_atlas=False, atlas_max=2048):
+    """Writes the FBX + textures. Returns the Report.
+    use_atlas: put the textures of most materials into one atlas (fewer materials / draw calls in Unity)."""
     report = export.Report()
     objs, armatures = collect_objects(root)
     meshes = [o for o in objs if o.type == "MESH"]
@@ -210,19 +241,45 @@ def export_fbx(context, root, filepath):
         bones = sum(len(a.data.bones) for a in armatures)
         report.add("info", "", "アーマチュア %d 個（骨 %d 本）を書き出しました。アニメーションは含めません" % (len(armatures), bones))
 
-    # temporary data: part id UVs and the SM JSON on the root
-    added_uv = []
-    for o in meshes:
-        if o.data.users == 1 and _add_part_uv(o.data):
-            added_uv.append(o.data)
-
     cache = {}
-    materials = {}
-    for o in meshes:
-        for slot in o.material_slots:
-            mat = slot.material
-            if mat is not None and "sm_shader" in mat and mat.name not in materials:
-                materials[mat.name] = material_data(mat, tex_dir, folder_name, cache, report)
+    smcad_cache = {}
+    api.call(api.export_begin, context, root, objs, tex_dir, folder_name, report)
+
+    def smcad_of(mat):
+        if mat not in smcad_cache:
+            smcad_cache[mat] = material_smcad(mat, tex_dir, folder_name, cache, report)
+        return smcad_cache[mat]
+
+    # temporary data: the atlas (edited mesh copies), part id UVs and the SM JSON on the root
+    atlas = None
+    if use_atlas:
+        atlas = atlas_mod.build(meshes, lambda m: smcad_of(m) if "sm_shader" in m else {}, tex_dir, folder_name,
+                                stem, report, max_size=atlas_max)
+    added_uv = []
+    try:
+        for o in meshes:
+            rows = atlas.loop_rows.get(o.data) if atlas is not None else None
+            if (o.data.users == 1 or rows is not None) and o.data not in added_uv and _add_part_uv(o.data, rows):
+                added_uv.append(o.data)
+
+        materials = {}
+        if atlas is not None:
+            materials[atlas.material.name] = atlas.entry
+        for o in meshes:
+            for slot in o.material_slots:
+                mat = slot.material
+                if mat is not None and "sm_shader" in mat and mat.name not in materials:
+                    materials[mat.name] = material_data(mat, tex_dir, folder_name, cache, report, smcad_of(mat))
+        return _write(context, root, filepath, objs, meshes, folder_name, materials, report, cache)
+    finally:
+        for mesh in added_uv:
+            _remove_part_uv(mesh)
+        if atlas is not None:
+            atlas.restore()
+        api.call(api.export_end, context, root)
+
+
+def _write(context, root, filepath, objs, meshes, folder_name, materials, report, cache):
 
     payload = {
         "version": FORMAT_VERSION,
@@ -235,6 +292,8 @@ def export_fbx(context, root, filepath):
         "bodies": {o.name: body_data(o) for o in meshes if o.get("sm_body") is not None},
         "report": report.items,
     }
+    api.call(api.export_payload, context, root, payload, os.path.join(os.path.dirname(filepath), folder_name),
+             folder_name, report)
     root[PROPERTY] = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
     try:
@@ -271,6 +330,4 @@ def export_fbx(context, root, filepath):
         view_layer.objects.active = previous_active
         if PROPERTY in root:
             del root[PROPERTY]
-        for mesh in added_uv:
-            _remove_part_uv(mesh)
     return report, len(objs), len(materials), len(cache)

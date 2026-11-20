@@ -9,6 +9,7 @@
 //   _Ov*   colour override            (SMC-AD core)
 //   _Sf*   surface type values        (SMC-AD+ Surfaces), same maths as the SMC+_SurfaceCore node group
 //   _L*    hand-made layer nodes      (U2 stage 1: constant / x / + / Mix with a mask)
+//   _Smd*  wear and dirt masks + look (SMC-DETAILS), see SMDetails.hlsl
 #ifndef SMCAD_COMMON_INCLUDED
 #define SMCAD_COMMON_INCLUDED
 
@@ -59,7 +60,88 @@ CBUFFER_START(UnityPerMaterial)
     float4 _LRoughOp; float4 _LRoughA; float4 _LRoughB; float _LRoughF;
     float4 _LSpecOp;  float4 _LSpecA;  float4 _LSpecB;  float _LSpecF;
     float4 _LEmisOp;  float4 _LEmisA;  float4 _LEmisB;  float _LEmisF;
+    // wear and dirt (SMC-DETAILS for Unity, SMDetails.hlsl): grid, generator, strengths, linear colours,
+    // (metal / rust / mud roughness, chip on texture), (wet darken, bump strength, bump distance, -)
+    float4 _SmdGridMin;   float4 _SmdGridInv;
+    float4 _SmdAmount0;   float4 _SmdAmount1;   float4 _SmdScale0;  float4 _SmdScale1;
+    float4 _SmdHeights;   // mud, soil, sand height above ground, ground (root y)
+    float4 _SmdGen0;      // edge gain, cavity gain, near offset (m), far offset (m)
+    float4 _SmdGen1;      // fine noise scale, border softness, has paint, seed
+    float _SmdView;
+    float4 _SmdStrength0;  float4 _SmdStrength1;
+    float4 _SmdPrimer; float4 _SmdMetal; float4 _SmdRustA; float4 _SmdRustB;
+    float4 _SmdGrime;  float4 _SmdMud;   float4 _SmdSoil;  float4 _SmdSand;
+    float4 _SmdParams0; float4 _SmdParams1;
+    float4 _SmdEdge;      // edge width (m), corner width (m), has edge data, -
+    float4 _SmdKick;      // track kick-up range (m), amount
+    float4 _SmdBurn;      // soot amount
+    float4 _SmdBurnColor;
+    float4 _SmdTrackMin0; float4 _SmdTrackMax0; float4 _SmdTrackMin1; float4 _SmdTrackMax1;   // w = used
+    float4 _SmdSrcP0; float4 _SmdSrcP1; float4 _SmdSrcP2; float4 _SmdSrcP3;   // soot sources: pos, radius
+    float4 _SmdSrcD0; float4 _SmdSrcD1; float4 _SmdSrcD2; float4 _SmdSrcD3;   // direction, type
+    float _SmdLinkSeed;
+    float4 _SmdBase0;     // base weathering: colour modulation, fading, per-part tone, filter
+    float4 _SmdBase1;     // post-shading, pin wash, edge highlight, streaks
+    float4 _SmdBase2;     // filter scale (1/m), streak density (1/m), streak length, model height (m)
 CBUFFER_END
+
+// ---------------------------------------------------------------------------------------------
+// Material settings. Normally from the material; in atlas mode (_SMCAD_ATLAS, one material for many SM
+// materials) from a table texture, one row per original material, the row comes with the mesh (UV3.x).
+// Row layout (7 texels, linear values):
+//   0 (ovEnabled, ovWhole, ovStrength, ovUseMatch)   1 (ovColor.rgb, ovTolerance)   2 (ovMatch.rgb, sfEnabled)
+//   3 (sfTexMetallic, sfPaintMetallic, sfRoughScale, sfRoughOffset)
+//   4 (sfSpecMul, sfCoat, sfCoatRough, sfNormalStrength)   5 (sfTint.rgb, sfTintStrength)
+//   6 (sfNoise, sfNoiseScale, specularMul, glowMul)
+// ---------------------------------------------------------------------------------------------
+#if defined(_SMCAD_ATLAS)
+TEXTURE2D(_SMParams);
+#endif
+
+struct SMParams
+{
+    half ovEnabled, ovWhole, ovStrength, ovUseMatch, ovUseTex, ovProjection, ovScale, ovTolerance;
+    half3 ovColor;
+    half3 ovMatch;
+    half sfEnabled, sfTexMetallic, sfPaintMetallic, sfRoughScale, sfRoughOffset, sfSpecMul;
+    half sfCoat, sfCoatRough, sfNormalStrength, sfTintStrength, sfNoise;
+    float sfNoiseScale;
+    float3 sfTint;
+    half specularMul, glowMul;
+};
+
+SMParams SMGetParams(float row)
+{
+    SMParams p;
+#if defined(_SMCAD_ATLAS)
+    int r = (int)(row + 0.5);
+    float4 t0 = LOAD_TEXTURE2D(_SMParams, int2(0, r));
+    float4 t1 = LOAD_TEXTURE2D(_SMParams, int2(1, r));
+    float4 t2 = LOAD_TEXTURE2D(_SMParams, int2(2, r));
+    float4 t3 = LOAD_TEXTURE2D(_SMParams, int2(3, r));
+    float4 t4 = LOAD_TEXTURE2D(_SMParams, int2(4, r));
+    float4 t5 = LOAD_TEXTURE2D(_SMParams, int2(5, r));
+    float4 t6 = LOAD_TEXTURE2D(_SMParams, int2(6, r));
+    p.ovEnabled = t0.x; p.ovWhole = t0.y; p.ovStrength = t0.z; p.ovUseMatch = t0.w;
+    p.ovUseTex = 0.0h; p.ovProjection = 0.0h; p.ovScale = 1.0h;   // image overrides stay out of the atlas
+    p.ovColor = t1.rgb; p.ovTolerance = t1.w;
+    p.ovMatch = t2.rgb; p.sfEnabled = t2.w;
+    p.sfTexMetallic = t3.x; p.sfPaintMetallic = t3.y; p.sfRoughScale = t3.z; p.sfRoughOffset = t3.w;
+    p.sfSpecMul = t4.x; p.sfCoat = t4.y; p.sfCoatRough = t4.z; p.sfNormalStrength = t4.w;
+    p.sfTint = t5.rgb; p.sfTintStrength = t5.w;
+    p.sfNoise = t6.x; p.sfNoiseScale = t6.y; p.specularMul = t6.z; p.glowMul = t6.w;
+#else
+    p.ovEnabled = _OvEnabled; p.ovWhole = _OvWhole; p.ovStrength = _OvStrength; p.ovUseMatch = _OvUseMatch;
+    p.ovUseTex = _OvUseTex; p.ovProjection = _OvProjection; p.ovScale = _OvScale;
+    p.ovColor = _OvColor.rgb; p.ovTolerance = _OvTolerance; p.ovMatch = _OvMatch.rgb;
+    p.sfEnabled = _SfEnabled; p.sfTexMetallic = _SfTexMetallic; p.sfPaintMetallic = _SfPaintMetallic;
+    p.sfRoughScale = _SfRoughScale; p.sfRoughOffset = _SfRoughOffset; p.sfSpecMul = _SfSpecMul;
+    p.sfCoat = _SfCoat; p.sfCoatRough = _SfCoatRough; p.sfNormalStrength = _SfNormalStrength;
+    p.sfTint = _SfTint.rgb; p.sfTintStrength = _SfTintStrength; p.sfNoise = _SfNoise; p.sfNoiseScale = _SfNoiseScale;
+    p.specularMul = _SpecularMul; p.glowMul = _GlowMul;
+#endif
+    return p;
+}
 
 half4 SMSampleDif(float2 uv)
 {
@@ -83,23 +165,23 @@ half SMPaintMask(half4 dif)
     return (_AlphaMode > 0.5h && _AlphaMode < 1.5h) ? 1.0h : dif.a;
 }
 
-half3 SMOverrideTexture(float3 positionOS, half3 normalOS, float2 uv)
+half3 SMOverrideTexture(float3 positionOS, half3 normalOS, float2 uv, SMParams p)
 {
     half3 result;
-    if (_OvProjection > 0.5h)
+    if (p.ovProjection > 0.5h)
     {
-        result = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, uv * _OvScale).rgb;
+        result = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, uv * p.ovScale).rgb;
     }
     else
     {
         // Triplanar in object space (metres)
-        float3 p = positionOS * _OvScale;
+        float3 q = positionOS * p.ovScale;
         half3 n = abs(normalOS);
         half3 w = n * n * n * n;
         w /= max(w.x + w.y + w.z, 1e-4h);
-        half3 cx = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, p.zy).rgb;
-        half3 cy = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, p.xz).rgb;
-        half3 cz = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, p.xy).rgb;
+        half3 cx = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, q.zy).rgb;
+        half3 cy = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, q.xz).rgb;
+        half3 cz = SAMPLE_TEXTURE2D(_OvTex, sampler_OvTex, q.xy).rgb;
         result = cx * w.x + cy * w.y + cz * w.z;
     }
     return result;
@@ -107,14 +189,14 @@ half3 SMOverrideTexture(float3 positionOS, half3 normalOS, float2 uv)
 
 // Diffuse override: replace paint (and optionally the whole surface) with a colour or texture,
 // optionally only where the paint matches one colour.
-void SMApplyOverride(inout half3 paint, inout half3 difRgb, float3 positionOS, half3 normalOS, float2 uv)
+void SMApplyOverride(inout half3 paint, inout half3 difRgb, float3 positionOS, half3 normalOS, float2 uv, SMParams p)
 {
-    if (_OvEnabled < 0.5h) return;
-    half3 replacement = _OvUseTex > 0.5h ? SMOverrideTexture(positionOS, normalOS, uv) : _OvColor.rgb;
-    half selected = _OvUseMatch > 0.5h ? step(distance(paint, _OvMatch.rgb), _OvTolerance) : 1.0h;
-    half f = selected * _OvStrength;
+    if (p.ovEnabled < 0.5h) return;
+    half3 replacement = p.ovUseTex > 0.5h ? SMOverrideTexture(positionOS, normalOS, uv, p) : p.ovColor;
+    half selected = p.ovUseMatch > 0.5h ? step(distance(paint, p.ovMatch), p.ovTolerance) : 1.0h;
+    half f = selected * p.ovStrength;
     paint = lerp(paint, replacement, f);
-    difRgb = lerp(difRgb, replacement, f * _OvWhole);
+    difRgb = lerp(difRgb, replacement, f * p.ovWhole);
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -4,6 +4,8 @@
 //   - the FBX materials become SM Lit / SM Glass materials (textures from "<name>_textures/", colour override,
 //     surface type, layer nodes)
 //   - the part id UV (FBX UV channel 1, "SM_Part") moves to UV2 where the SM shader reads it
+//   - "量産向け" exports: one atlas material for most SM materials; their settings go into a small table
+//     texture (sub-asset of the model) and each face's row (SM_Part v) moves to UV3
 //   - SMBlueprint / SMBody / SMJoint components with the data from Blender
 // The SM data is one JSON string on the root object (FBX user property "smcad_unity").
 using System;
@@ -37,7 +39,12 @@ namespace SMCAD.Editor
                 "nor" => SMBlueprintImporter.TexRole.Nor,
                 _ => SMBlueprintImporter.TexRole.Dif, // dif, override: colour textures
             };
-            SMBlueprintImporter.ConfigureTexture((TextureImporter)assetImporter, role);
+            var ti = (TextureImporter)assetImporter;
+            SMBlueprintImporter.ConfigureTexture(ti, role);
+            // atlases written by the "量産向け" export can be 4096
+            if (Path.GetFileNameWithoutExtension(assetPath).EndsWith("_atlas", StringComparison.OrdinalIgnoreCase)
+                && ti.maxTextureSize < 4096)
+                ti.maxTextureSize = 4096;
         }
 
         // ------------------------------------------------------------------ model
@@ -97,7 +104,9 @@ namespace SMCAD.Editor
             Transform Find(string name) => transforms.FirstOrDefault(t => t.name == name)
                 ?? (owner != null && name == ownerName ? owner.transform : null);
 
-            int materials = ApplyMaterials(root, MiniJson.Obj(data, "materials"), folder);
+            var materialsJson = MiniJson.Obj(data, "materials");
+            bool atlas = materialsJson != null && materialsJson.Values.Any(v => MiniJson.Obj(v, "atlas") != null);
+            int materials = ApplyMaterials(root, materialsJson, folder);
             var bodies = MiniJson.Obj(data, "bodies") ?? new Dictionary<string, object>();
             int moved = 0, joints = 0;
             foreach (var kv in bodies)
@@ -106,7 +115,7 @@ namespace SMCAD.Editor
                 if (t == null) continue;
                 var body = kv.Value as Dictionary<string, object>;
                 int bodyIndex = MiniJson.Int(body, "sm_body", -1);
-                if (MiniJson.Bool(body, "part_uv") && MovePartUv(t, SMBlueprintImporter.BodyRandom(bodyIndex))) moved++;
+                if (MiniJson.Bool(body, "part_uv") && MovePartUv(t, SMBlueprintImporter.BodyRandom(bodyIndex), atlas)) moved++;
 
                 var smBody = t.gameObject.GetComponent<SMBody>() ?? t.gameObject.AddComponent<SMBody>();
                 smBody.bodyIndex = bodyIndex;
@@ -179,9 +188,66 @@ namespace SMCAD.Editor
                     if (smcad != null)
                         SMBlueprintImporter.ApplyBlenderSettings(mat, smcad, ov => Load(MiniJson.Str(ov, "image_path")),
                                                                  SMBlueprintImporter.IsGlass(smShader));
+                    var atlas = MiniJson.Obj(info, "atlas");
+                    if (atlas != null) SetupAtlas(mat, atlas);
+                    else mat.DisableKeyword("_SMCAD_ATLAS");
                 }
             }
             return done.Count;
+        }
+
+        // ------------------------------------------------------------------ atlas ("量産向け")
+
+        static float F(object o, string key, float def = 0f) => (float)MiniJson.Num(o, key, def);
+
+        static Vector4 Vec(object o, string key, Vector4 def)
+        {
+            var l = MiniJson.Arr(o, key);
+            if (l == null || l.Count < 3) return def;
+            return new Vector4((float)(double)l[0], (float)(double)l[1], (float)(double)l[2], l.Count > 3 ? (float)(double)l[3] : def.w);
+        }
+
+        /// <summary>One row of settings per original material (layout in SMCommon.hlsl, values linear).</summary>
+        void SetupAtlas(Material mat, Dictionary<string, object> atlas)
+        {
+            var rows = MiniJson.Arr(atlas, "rows") ?? new List<object>();
+            const int Width = 7;
+            var tex = new Texture2D(Width, Mathf.Max(1, rows.Count), TextureFormat.RGBAFloat, false, true)
+            {
+                name = mat.name + "_Params", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp,
+            };
+            var px = new Color[Width * Mathf.Max(1, rows.Count)];
+            bool coat = false;
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var smcad = MiniJson.Obj(rows[r], "smcad") ?? new Dictionary<string, object>();
+                var ov = MiniJson.Obj(smcad, "override");
+                var sf = MiniJson.Obj(MiniJson.Obj(smcad, "surface"), "values");
+                Vector4 ovColor = Vec(ov, "color", Vector4.one);
+                Vector4 ovMatch = Vec(ov, "match_color", new Vector4(0.5f, 0.5f, 0.5f, 1f));
+                Vector4 tint = Vec(sf, "tint", Vector4.one);
+                float c = sf != null ? F(sf, "coat") : 0f;
+                coat |= c > 0f;
+                int o = r * Width;
+                px[o + 0] = new Color(ov != null ? 1f : 0f, MiniJson.Str(ov, "target") == "SURFACE" ? 1f : 0f,
+                                      F(ov, "strength", 1f), MiniJson.Bool(ov, "match_enabled") ? 1f : 0f);
+                px[o + 1] = new Color(ovColor.x, ovColor.y, ovColor.z, F(ov, "match_tolerance", 0.02f));
+                px[o + 2] = new Color(ovMatch.x, ovMatch.y, ovMatch.z, sf != null ? 1f : 0f);
+                px[o + 3] = new Color(F(sf, "metallic"), F(sf, "paint_metallic"), F(sf, "roughness_scale", 1f), F(sf, "roughness_offset"));
+                px[o + 4] = new Color(F(sf, "specular", 1f), c, F(sf, "coat_roughness", 0.1f), F(sf, "normal_strength", 1f));
+                px[o + 5] = new Color(tint.x, tint.y, tint.z, F(sf, "tint_strength"));
+                px[o + 6] = new Color(F(sf, "noise"), F(sf, "noise_scale", 10f), 1f, 1f);
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            context.AddObjectToAsset(tex.name, tex);
+            mat.SetTexture("_SMParams", tex);
+            mat.SetFloat("_SMAtlas", 1f);
+            mat.EnableKeyword("_SMCAD_ATLAS");
+            mat.SetFloat("_OvEnabled", 0f);
+            mat.SetFloat("_SfEnabled", 0f);
+            if (coat) mat.EnableKeyword("_CLEARCOAT");
+            else mat.DisableKeyword("_CLEARCOAT");
         }
 
         static Mesh MeshOf(Transform t)
@@ -192,13 +258,14 @@ namespace SMCAD.Editor
             return null;
         }
 
-        static bool MovePartUv(Transform t, float bodyRandom)
+        static bool MovePartUv(Transform t, float bodyRandom, bool atlasRows)
         {
             Mesh mesh = MeshOf(t);
             if (mesh == null) return false;
             var uv1 = new List<Vector2>();
             mesh.GetUVs(1, uv1);
             if (uv1.Count != mesh.vertexCount) return false;
+            if (atlasRows) mesh.SetUVs(3, uv1.Select(uv => new Vector2(uv.y, 0f)).ToList());
             mesh.SetUVs(2, uv1.Select(uv => new Vector2(uv.x, bodyRandom)).ToList());
             mesh.SetUVs(1, (List<Vector2>)null);
             return true;

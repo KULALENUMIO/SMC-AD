@@ -16,6 +16,7 @@ namespace SMCAD.Editor
             { "_DifMap", "Scrap Mechanic のテクスチャ" },
             { "_OvEnabled", "色の差し替え" },
             { "_SfEnabled", "材質（SMC-AD+ Surfaces）" },
+            { "_SmdEnabled", "汚し（SMC-DETAILS）" },
             { "_LBaseOp", "Blender の手作業ノード（演算 = 種類・マスク・Aはレイヤー・Bはレイヤー）" },
         };
 

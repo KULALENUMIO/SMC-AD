@@ -13,11 +13,20 @@ to these lists in register(), and removes them again in unregister().
   after_reset     f(context, objects, materials)             after it (restore own import-time state)
   export_material f(material, smcad_extras, report)          Unity export: add own data to the material's
                                                               "smcad" extras; report.add(level, material, text)
+  export_begin    f(context, root, objects, tex_dir, folder_name, report)
+                                                              Unity FBX export starts (before any mesh is touched)
+  export_payload  f(context, root, payload, tex_dir, folder_name, report)
+                                                              Unity FBX export: add own top-level data to the JSON
+                                                              (meshes already have their export UV layers)
+  export_end      f(context, root)                            Unity FBX export finished or failed (clean up)
+
+Shader nodes of an extension that sit on a layer wire and only change it can set the custom property
+"smcad_passthrough" = True: the Unity export then reads the hand-made layer through them (input of the same name).
 """
 
 import traceback
 
-API_VERSION = 3
+API_VERSION = 4
 
 material_built = []
 imported = []
@@ -26,6 +35,9 @@ original_material = []
 before_reset = []
 after_reset = []
 export_material = []
+export_begin = []
+export_payload = []
+export_end = []
 
 
 def call(hooks, *args):

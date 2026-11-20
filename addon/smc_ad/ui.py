@@ -99,6 +99,8 @@ class SMCAD_PT_bodies(_Panel, bpy.types.Panel):
             row.operator("smcad.detach_body", text="外す", icon="UNLINKED")
             row.operator("smcad.delete_body", text="削除", icon="TRASH")
             col.label(text="子は親につなぎ直されます", icon="INFO")
+            col = layout.column(align=True)
+            col.operator("smcad.mirror_parts", text="左右反転コピー（先の部品も）", icon="MOD_MIRROR")
         else:
             layout.label(text="ボディを選ぶと親子を変えられます", icon="INFO")
 
