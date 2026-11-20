@@ -111,6 +111,15 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 2. シーン（TankRig_Stingray、TestField）を新しいプロジェクトで作り直す（URP → HDRP の自動変換はない）。
 3. ScreenRecorder の確認（上下反転だけ注意）。
 
+**P4 の結果（2026-11-21、SMC-HDRP-DEV、git なし・手動バックアップの対象）**
+- TestField（`Assets/TestField/Editor/TestFieldBuilder.cs`）を HDRP に移植: HDRP/Lit・HDRP/TerrainLit、草はインスタンス描画のメッシュ（HDRP には地形のビルボード草がない）、太陽 100,000 lux、Volume に PB Sky・霧（平均自由行程 285 m）・固定露出 EV 13・モーションブラーなし。生成 21 秒。
+- 太陽の高さを 38° → 55° に変更: HDRP の影は 500 m 先まで描かれる（URP は約 50 m）ため、低い太陽だと道と戦車が木の影に入った。
+- 戦車シーン `TankRig_Stingray` は TANK TRACK DEV からコピーし、`SMCADHdrpTankTest.RebuildTankScene` で作り直して保存（変換・URP 専用部品の削除・空と露出の Volume）。TestField の「戦車を置く」はここから戦車を写す。TANK TRACK DEV は読むだけで変更していない。
+- **走行テスト（Play モード、バッチ）**: `Assets/Tests/PlayMode/TankDriveTest.cs`、実行は `SMC-Tools/unity-test.ps1`。5 秒で約 31 m（約 11 m/s）、3 秒の旋回で約 40°、主砲の発砲光 約 77 万 lm。合格。
+- HDRP の見た目の違い（不具合ではない）: 空からの環境光は物理的な強さなので、URP の Trilight より影側が暗い。暗い塗装の戦車は影側がほぼ黒になる。明るくしたいときは露出を下げる・自動露出・Indirect Lighting Controller のどれか。
+- 道具の修正: `unity-batch.ps1` が追加の引数なしで動かなかったのを修正。`unity-test.ps1` を追加。
+- 残り: RealisticTankFX と発射炎のシミュレーションは保留のまま（VFX Graph で作り直す案）。
+
 ### P5 Blender 側・ドキュメント・リリース
 1. Blender アドオン: 動作は変えない。表記を「Unity 側は HDRP」にする。凍結中の smc_details の古い記述を直す。
 2. package.json の依存を HDRP に変え、版を上げる（例: com.smcad.unity 0.4.0、details 0.2.0、tankrig 0.8.0-alpha）。README、CHANGELOG、インストール手順。
