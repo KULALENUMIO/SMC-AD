@@ -125,6 +125,11 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 2. package.json の依存を HDRP に変え、版を上げる（例: com.smcad.unity 0.4.0、details 0.2.0、tankrig 0.8.0-alpha）。README、CHANGELOG、インストール手順。
 3. GitHub への push とリリースは**オーナーの了承を得てから**行う。
 
+**P5 の結果（2026-11-21、コミット前・未公開）**
+- Blender アドオンのコードは URP に触れていないため変更なし。README（リポジトリ・凍結中の smc_details）と CHANGELOG を HDRP に合わせた。凍結中の smc_details から Unity へ汚しを持っていく道（UV4）は廃止と明記。
+- リリース用の tgz を `dist_release/hdrp-2026-11-21/` に作成（com.smcad.unity 0.4.0、com.smcad.details 0.2.0、com.tankrig.unity 0.8.0-alpha、SHA256SUMS、RELEASE_NOTES 下書き）。SMC-HDRP-DEV に tgz から入れて全シェーダーの組み合わせが動くことを確認。
+- 残り（オーナーの了承待ち）: GitHub への push（`hdrp` ブランチ・`urp-final` タグ）、リリースの公開。`SMCAD_TestProject` は URP のまま凍結（HDRP のテストは SMC-HDRP-DEV にある。リポジトリに入れるなら別途）。
+
 ## 5. バックグラウンドでの作業の決まり
 
 - Unity は `-batchmode`（ウィンドウなし）で、オーナーが開いていないプロジェクトにだけ使う。Unity MCP（エディタを前面に出す必要がある）は使わない。

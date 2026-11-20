@@ -1,5 +1,13 @@
 # SMC-AD 変更履歴
 
+## Unity 側を HDRP 専用に（com.smcad.unity 0.4.0 / com.smcad.details 0.2.0 / タンクリギング 0.8.0-alpha）— 2026-11-21
+- **Unity 側は HDRP（Unity 6000.3 / HDRP 17.3 以降）だけに対応**。URP 版は `urp-final` タグに残す（Blender 側の動作は変わらない）
+- SM Lit / SM Glass を HDRP の Shader Graph（Lit・Specular Color・クリアコート・両面）にした。SM の計算は描画方式に依存しない HLSL（`SMSurface.hlsl`、`SMCommon.hlsl`）に分け、グラフは `unity/tools/make_sm_graphs.py` で生成する。SM の発光はカメラの露出を打ち消し、Blender と同じ明るさに見える
+- SMC-DETAILS for Unity: Details Lit も HDRP の Shader Graph（プロパティ名は HDRP/Lit と同じ）。凸の角のデータは UV4 → **UV1**（HDRP はモーションベクトルに TEXCOORD4 を使う）。URP で汚しを付けた機体は「汚しを付ける」をやり直す。デカールは HDRP の Decal Projector
+- タンクリギング: パーティクルはパッケージ内の Shader Graph「TankRig/Particle Unlit」。ライトは物理単位（発砲光 800,000 lm、前照灯 3,000 lm、尾灯 60 lm）
+- 移行の道具: `Tools > SMC-AD > URP のマテリアルを HDRP に変換`（SM Lit / Glass / Details Lit / URP Lit。シェーダーが消えてピンクになったマテリアルも値を引き継ぐ）、`Tools > TankRig > HDRP に合わせる（ライト・エフェクト）`
+- Blender 版 SMC-DETAILS（凍結中）から Unity へ汚しを持っていく道（マスクの UV を UV4 に入れる方式）は廃止
+- 確認: HDRP の開発用プロジェクトでバッチ実行。HITOGATA・ROBO-TEST・戦車（KS-25A3V）を URP の見本画像と比較、全シェーダーの組み合わせ、汚しのプリセット・デカール、Play モードで走行・旋回・発砲。詳細は `docs/HDRP_MIGRATION.md`
 ## 試作: SMC-DETAILS for Unity（汚しを Unity で）— `unity/com.smcad.details`
 - 汚しの作業を Blender から Unity に移した試作。Tools > SMC-AD > 汚し（SMC-DETAILS）
   - 形の解析: 機体のまわりの 3D 格子について、96 方向の深度（GPU）から「何方向から見えるか」を数える。角・くぼみがわかる。UV 展開・Cycles なし
