@@ -6,7 +6,8 @@
 //   - neither                                                                 -> convex edge (the surface drops away)
 // The meshes are copied with one vertex per triangle corner, so each triangle can carry, per edge, the distance to
 // that edge as a value that is linear over the triangle (corner k: height h_k for the edge opposite it, 0 for the
-// others). UV4.xyz = convex edges, UV7.xyz = concave edges, 10 = not an edge. UV5 / UV6 = rest position / normal.
+// others). UV1.xyz = convex edges (HDRP: TEXCOORD4 belongs to the motion vector pass; UV4 in the URP version),
+// UV7.xyz = concave edges, 10 = not an edge. UV5 / UV6 = rest position / normal. (UV1, the lightmap UV, is not kept.)
 // Which side of a triangle is "outside" comes from the shape grid (the side that sees more directions), because SM
 // meshes have unreliable normals and winding.
 using System.Collections.Generic;
@@ -140,7 +141,7 @@ namespace SMCAD.Details.Editor
             var tg = src.tangents;
             var col = src.colors;
             var uvs = new List<(int ch, List<Vector4> data)>();
-            for (int ch = 0; ch < 4; ch++)
+            foreach (int ch in new[] { 0, 2, 3 })   // UV1 carries the convex edges
             {
                 if (!src.HasVertexAttribute(VertexAttribute.TexCoord0 + ch)) continue;
                 var l = new List<Vector4>();
@@ -195,7 +196,7 @@ namespace SMCAD.Details.Editor
             if (ot != null) m.tangents = ot;
             if (oc != null) m.colors = oc;
             foreach (var u in ouv) m.SetUVs(u.ch, u.data);
-            m.SetUVs(4, cx);
+            m.SetUVs(1, cx);
             m.SetUVs(5, rp);
             m.SetUVs(6, rn);
             m.SetUVs(7, cc);

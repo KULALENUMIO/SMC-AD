@@ -1,11 +1,11 @@
 {
   "name": "com.smcad.unity",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "displayName": "SMC-AD Scrap Mechanic Importer",
-  "description": "Imports Scrap Mechanic blueprints exported by the SMC-AD build of SMConverter (-gltf) as native Unity assets: meshes, textures, SM shader materials (URP), prefab with joint hierarchy.",
-  "unity": "6000.1",
+  "description": "Imports Scrap Mechanic blueprints exported by the SMC-AD build of SMConverter (-gltf) as native Unity assets: meshes, textures, SM shader materials (HDRP Shader Graphs: SM Lit / SM Glass), prefab with joint hierarchy.",
+  "unity": "6000.3",
   "dependencies": {
-    "com.unity.render-pipelines.universal": "17.1.0"
+    "com.unity.render-pipelines.high-definition": "17.3.0"
   },
   "author": {
     "name": "SMC-AD Project"

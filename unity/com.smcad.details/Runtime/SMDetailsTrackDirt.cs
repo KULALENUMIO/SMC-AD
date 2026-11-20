@@ -66,10 +66,14 @@ namespace SMCAD.Details
             if (!extra.TryGetValue(o, out var c))
             {
                 c = new Material(template) { name = o.name + " (汚し・履帯)", hideFlags = HideFlags.DontSave };
-                if (o.HasProperty("_BaseMap")) c.SetTexture("_BaseMap", o.GetTexture("_BaseMap"));
+                // HDRP/Lit names (Details Lit uses the same ones)
+                foreach (var t in new[] { "_BaseColorMap", "_NormalMap", "_MaskMap" })
+                    if (o.HasProperty(t)) c.SetTexture(t, o.GetTexture(t));
                 c.SetColor("_BaseColor", o.GetColor("_BaseColor"));
-                if (o.HasProperty("_Metallic")) c.SetFloat("_Metallic", o.GetFloat("_Metallic"));
-                if (o.HasProperty("_Smoothness")) c.SetFloat("_Smoothness", o.GetFloat("_Smoothness"));
+                foreach (var f in new[] { "_Metallic", "_Smoothness", "_NormalScale", "_MetallicRemapMin", "_MetallicRemapMax",
+                                          "_SmoothnessRemapMin", "_SmoothnessRemapMax", "_AORemapMin", "_AORemapMax" })
+                    if (o.HasProperty(f)) c.SetFloat(f, o.GetFloat(f));
+                c.SetFloat("_HasMask", o.HasProperty("_MaskMap") && o.GetTexture("_MaskMap") != null ? 1f : 0f);
                 extra[o] = c;
             }
             return c;

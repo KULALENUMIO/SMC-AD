@@ -3,17 +3,20 @@
 // Everything is computed live (no UV, no baked masks). Inputs per vertex (written by the set-up into a copy of
 // each mesh, one vertex per triangle corner):
 //   UV5 rest position / UV6 rest normal  (frame = world axes at the blueprint root at analysis time, y = up)
-//   UV4.xyz distance to the triangle's convex edges, UV7.xyz to its concave edges (metres; 10 = not an edge).
+//   UV1.xyz distance to the triangle's convex edges (HDRP; UV4 in the URP version), UV7.xyz to its concave edges
+//   (metres; 10 = not an edge).
 //     Each component is linear over the triangle, so the shader gets the exact distance to real part edges.
 // Shape grid _SmdGeo (3D): fraction of directions from which a point is visible (cavities, thin parts).
 // The including shader declares the _Smd* constants in its UnityPerMaterial buffer (see SMCommon.hlsl).
 #ifndef SMCAD_DETAILS_INCLUDED
 #define SMCAD_DETAILS_INCLUDED
 
+#ifndef SMCAD_GRAPH   // a Shader Graph declares these on its blackboard
 TEXTURE3D(_SmdGeo);    SAMPLER(sampler_SmdGeo);
 TEXTURE3D(_SmdNoise);  SAMPLER(sampler_SmdNoise);
 TEXTURE3D(_SmdPaint0); SAMPLER(sampler_SmdPaint0);
 TEXTURE3D(_SmdPaint1);
+#endif
 
 #define SMD_NOISE_CELLS 12.0
 #define SMD_NO_EDGE 9.0

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // SMC-DETAILS for Unity: set-up and GPU analysis.
-//   1. rest-pose position / normal of every vertex (UV5 / UV6) and the distance to real part edges (UV4 / UV7,
+//   1. rest-pose position / normal of every vertex (UV5 / UV6) and the distance to real part edges (UV1 / UV7,
 //      SMDetailsEdges) in a copy of each mesh, swapped in on the renderer (the original comes back on removal)
 //   2. shape grid: the blueprint is drawn as depth from N directions (orthographic, GPU); for each grid point the
 //      directions from which it is in front of the nearest surface are counted (compute shader) -> Texture3D
@@ -58,7 +58,7 @@ namespace SMCAD.Details.Editor
                 .ToList();
         }
 
-        public const string UrpLit = "Universal Render Pipeline/Lit";
+        public const string HdrpLit = "HDRP/Lit";
         public const string DetailsLit = "SMC-AD/Details Lit";
 
         /// <summary>Parts that come with the blueprint but are not SM parts: siblings named "Track_*" or carrying a
@@ -110,11 +110,11 @@ namespace SMCAD.Details.Editor
             return AttachedRoots(root).SelectMany(a => a.GetComponentsInChildren<MeshRenderer>(true))
                 .Where(r => (r.gameObject.hideFlags & HideFlags.DontSave) == 0 && !r.transform.GetComponentsInParent<Transform>(true).Any(p => p.name.StartsWith("__"))
                             && r.TryGetComponent<MeshFilter>(out var mf) && mf.sharedMesh != null
-                            && r.sharedMaterials.Any(m => m != null && m.shader != null && (m.shader.name == UrpLit || m.shader.name == DetailsLit)))
+                            && r.sharedMaterials.Any(m => m != null && m.shader != null && (m.shader.name == HdrpLit || m.shader.name == DetailsLit)))
                 .ToList();
         }
 
-        /// <summary>The weathered copy of an SM Lit / URP Lit material. Its file name is fixed per original material
+        /// <summary>The weathered copy of an SM Lit / HDRP Lit material. Its file name is fixed per original material
         /// (name + a short hash of where it comes from), so set-up again — also after "汚しを外す" — reuses the same
         /// file instead of leaving "… 1.mat" copies behind.</summary>
         static Material MakeCopy(Material o, string folder, bool belt)
@@ -132,20 +132,12 @@ namespace SMCAD.Details.Editor
             }
             else
             {
-                // URP Lit, and every track-link material (SM Lit has no belt mode): the small Details Lit shader
+                // HDRP/Lit, and every track-link material (SM Lit has no belt mode): the small Details Lit shader
                 if (create) c = new Material(Shader.Find(DetailsLit));
                 else c.shader = Shader.Find(DetailsLit);
-                if (o.HasProperty("_DifMap") && !o.HasProperty("_BaseMap"))
-                {
-                    c.SetTexture("_BaseMap", o.GetTexture("_DifMap"));
-                    c.SetColor("_BaseColor", Color.white);
-                }
-                foreach (var t in new[] { "_BaseMap", "_BumpMap" })
-                    if (o.HasProperty(t)) { c.SetTexture(t, o.GetTexture(t)); c.SetTextureScale(t, o.GetTextureScale(t)); c.SetTextureOffset(t, o.GetTextureOffset(t)); }
-                if (o.HasProperty("_BaseColor")) c.SetColor("_BaseColor", o.GetColor("_BaseColor"));
-                foreach (var f in new[] { "_Metallic", "_Smoothness", "_BumpScale" })
-                    if (o.HasProperty(f)) c.SetFloat(f, o.GetFloat(f));
+                CopyLitLook(o, c);
             }
+            SMCAD.Editor.SMMaterialSetup.Validate(c);   // HDRP keywords / passes / queue (+ the SMC-DETAILS keyword)
             if (create) AssetDatabase.CreateAsset(c, path);
             else EditorUtility.SetDirty(c);
             return c;
@@ -177,7 +169,25 @@ namespace SMCAD.Details.Editor
             return removed;
         }
 
-        static bool Weatherable(Material o) => o != null && o.shader != null && (o.shader.name == LitShader || o.shader.name == UrpLit);
+        static bool Weatherable(Material o) => o != null && o.shader != null && (o.shader.name == LitShader || o.shader.name == HdrpLit);
+
+        /// <summary>Base colour, metal, smoothness, mask and normal map of an HDRP/Lit (or SM Lit / Details Lit) material onto
+        /// a Details Lit material (same property names as HDRP/Lit).</summary>
+        public static void CopyLitLook(Material o, Material c)
+        {
+            if (o.HasProperty("_DifMap") && !o.HasProperty("_BaseColorMap"))
+            {
+                c.SetTexture("_BaseColorMap", o.GetTexture("_DifMap"));
+                c.SetColor("_BaseColor", Color.white);
+            }
+            foreach (var t in new[] { "_BaseColorMap", "_NormalMap", "_MaskMap" })
+                if (o.HasProperty(t)) { c.SetTexture(t, o.GetTexture(t)); c.SetTextureScale(t, o.GetTextureScale(t)); c.SetTextureOffset(t, o.GetTextureOffset(t)); }
+            if (o.HasProperty("_BaseColor")) c.SetColor("_BaseColor", o.GetColor("_BaseColor"));
+            foreach (var f in new[] { "_Metallic", "_Smoothness", "_NormalScale", "_MetallicRemapMin", "_MetallicRemapMax",
+                                      "_SmoothnessRemapMin", "_SmoothnessRemapMax", "_AORemapMin", "_AORemapMax" })
+                if (o.HasProperty(f)) c.SetFloat(f, o.GetFloat(f));
+            c.SetFloat("_HasMask", o.HasProperty("_MaskMap") && o.GetTexture("_MaskMap") != null ? 1f : 0f);
+        }
 
         /// <summary>Track links: the tracks rebuild their links by themselves (and the Tank Rigging window may change
         /// the link prefab), so a SMDetailsTrackDirt on each track swaps the link materials for belt materials whenever

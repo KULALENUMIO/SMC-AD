@@ -1,7 +1,12 @@
 {
     "name": "SMCAD.Details.Editor",
     "rootNamespace": "SMCAD.Details.Editor",
-    "references": [ "SMCAD.Details", "Unity.RenderPipelines.Universal.Runtime", "Unity.RenderPipelines.Core.Runtime" ],
+    "references": [
+        "SMCAD.Details",
+        "SMCAD.Editor",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
     "includePlatforms": [ "Editor" ],
     "autoReferenced": true
 }

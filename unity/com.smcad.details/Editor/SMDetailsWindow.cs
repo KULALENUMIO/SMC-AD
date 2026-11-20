@@ -7,7 +7,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.HighDefinition;
 
 namespace SMCAD.Details.Editor
 {
@@ -258,25 +258,15 @@ namespace SMCAD.Details.Editor
             if (painting) EditorGUILayout.HelpBox("ドラッグで描く / Shift+ドラッグで消す / Alt+ドラッグで視点を回す", MessageType.None);
         }
 
-        // ------------------------------------------------------------------ decals (URP Decal Projector)
-
-        static UniversalRendererData RendererData()
-        {
-            var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
-            if (urp == null) return null;
-            var so = new SerializedObject(urp);
-            var list = so.FindProperty("m_RendererDataList");
-            int index = so.FindProperty("m_DefaultRendererIndex").intValue;
-            return list.arraySize > index ? list.GetArrayElementAtIndex(index).objectReferenceValue as UniversalRendererData : null;
-        }
+        // ------------------------------------------------------------------ decals (HDRP Decal Projector)
 
         void DecalGUI(SMDetails d)
         {
-            var rd = RendererData();
-            if (rd != null && !rd.rendererFeatures.Any(f => f is DecalRendererFeature))
+            var hd = GraphicsSettings.currentRenderPipeline as HDRenderPipelineAsset;
+            if (hd != null && !hd.currentPlatformRenderPipelineSettings.supportDecals)
             {
-                EditorGUILayout.HelpBox("デカールを表示するには、URP のレンダラーに「Decal」機能を足す必要があります（インスペクターの Add Renderer Feature → Decal）。", MessageType.Warning);
-                if (GUILayout.Button("レンダラーの設定を開く")) { Selection.activeObject = rd; EditorGUIUtility.PingObject(rd); }
+                EditorGUILayout.HelpBox("デカールを表示するには、HDRP アセットの「Decals」を有効にしてください（Rendering → Decals）。", MessageType.Warning);
+                if (GUILayout.Button("HDRP アセットを開く")) { Selection.activeObject = hd; EditorGUIUtility.PingObject(hd); }
             }
             decalTex = (Texture2D)EditorGUILayout.ObjectField("画像", decalTex, typeof(Texture2D), false);
             decalSize = EditorGUILayout.Slider("大きさ (m)", decalSize, 0.05f, 3f);
@@ -323,9 +313,17 @@ namespace SMCAD.Details.Editor
             var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
             if (mat == null)
             {
-                mat = new Material(Shader.Find("Shader Graphs/Decal"));
-                mat.SetTexture("Base_Map", tex);
+                // HDRP/Decal: colour (and its alpha) only, so the panel lines / normal map underneath stay
+                mat = new Material(Shader.Find("HDRP/Decal"));
+                mat.SetTexture("_BaseColorMap", tex);
+                mat.SetFloat("_AffectAlbedo", 1f);
+                mat.SetFloat("_AffectNormal", 0f);
+                mat.SetFloat("_AffectMetal", 0f);
+                mat.SetFloat("_AffectAO", 0f);
+                mat.SetFloat("_AffectSmoothness", 0f);
+                mat.SetFloat("_AffectEmission", 0f);
                 mat.enableInstancing = true;
+                HDMaterial.ValidateMaterial(mat);
                 AssetDatabase.CreateAsset(mat, matPath);
             }
             var go = new GameObject("Decal_" + tex.name);

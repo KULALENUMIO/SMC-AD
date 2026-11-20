@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SMC-AD shared shader code (URP).
+// SMC-AD shared shader code (pipeline-neutral: SRP Core only).
 // Shading model ported from SM-Converter-Plugin by QuestionableM (MIT License):
 //   base colour = lerp(paint colour, Dif.rgb, Dif.a)   (Dif.a = paint mask)
 //   ASG: R = cut-out alpha, G = specular, B = glow, A = gloss
@@ -13,7 +13,12 @@
 #ifndef SMCAD_COMMON_INCLUDED
 #define SMCAD_COMMON_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+
+// SMCAD_GRAPH: compiled inside a Shader Graph (SMGraph.hlsl). The graph's blackboard declares every material
+// property (UnityPerMaterial, SRP Batcher), so the declarations below are skipped there.
+#ifndef SMCAD_GRAPH
 
 TEXTURE2D(_DifMap); SAMPLER(sampler_DifMap);
 TEXTURE2D(_AsgMap); SAMPLER(sampler_AsgMap);
@@ -84,6 +89,7 @@ CBUFFER_START(UnityPerMaterial)
     float4 _SmdBase1;     // post-shading, pin wash, edge highlight, streaks
     float4 _SmdBase2;     // filter scale (1/m), streak density (1/m), streak length, model height (m)
 CBUFFER_END
+#endif
 
 // ---------------------------------------------------------------------------------------------
 // Material settings. Normally from the material; in atlas mode (_SMCAD_ATLAS, one material for many SM
@@ -94,7 +100,7 @@ CBUFFER_END
 //   4 (sfSpecMul, sfCoat, sfCoatRough, sfNormalStrength)   5 (sfTint.rgb, sfTintStrength)
 //   6 (sfNoise, sfNoiseScale, specularMul, glowMul)
 // ---------------------------------------------------------------------------------------------
-#if defined(_SMCAD_ATLAS)
+#if defined(_SMCAD_ATLAS) && !defined(SMCAD_GRAPH)
 TEXTURE2D(_SMParams);
 #endif
 

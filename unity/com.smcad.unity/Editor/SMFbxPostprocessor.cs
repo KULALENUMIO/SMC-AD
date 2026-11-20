@@ -246,8 +246,7 @@ namespace SMCAD.Editor
             mat.EnableKeyword("_SMCAD_ATLAS");
             mat.SetFloat("_OvEnabled", 0f);
             mat.SetFloat("_SfEnabled", 0f);
-            if (coat) mat.EnableKeyword("_CLEARCOAT");
-            else mat.DisableKeyword("_CLEARCOAT");
+            // (HDRP: the coat amount comes per row from the table; the SM Lit graph always has the coat layer)
         }
 
         static Mesh MeshOf(Transform t)

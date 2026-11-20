@@ -327,14 +327,14 @@ namespace SMCAD.Editor
             if (IsGlass(smShader))
             {
                 if (created) mat.SetFloat("_Transparency", smShader == 7 ? 0.85f : 0.7f);
-                mat.renderQueue = (int)RenderQueue.Transparent;
             }
             else
             {
                 float alphaMode = FoliageShaders.Contains(smShader) ? 1f : smShader == 5 ? 2f : 0f;
                 mat.SetFloat("_AlphaMode", alphaMode);
-                mat.renderQueue = alphaMode > 0f ? (int)RenderQueue.AlphaTest : (int)RenderQueue.Geometry;
             }
+            // HDRP: alpha clipping from the alpha mode, then keywords / passes / render queue
+            SMMaterialSetup.Validate(mat);
         }
 
         // ------------------------------------------------------------------ settings made in Blender (SMC-AD export)
@@ -409,8 +409,6 @@ namespace SMCAD.Editor
                 mat.SetFloat("_SfNoise", F(values, "noise"));
                 mat.SetFloat("_SfNoiseScale", F(values, "noise_scale", 10f));
             }
-            if (coat > 0f) mat.EnableKeyword("_CLEARCOAT");
-            else mat.DisableKeyword("_CLEARCOAT");
 
             // Hand-made layers (U2 stage 1)
             var layers = MiniJson.Obj(smcad, "layers");

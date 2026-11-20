@@ -69,11 +69,28 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 4. 取り込み処理（SMBlueprintImporter、SMFbxPostprocessor、SMLitGUI）を HDRP のマテリアル検証に合わせ、`_CLEARCOAT` → HDRP のコートに置き換える。
 5. 確認: 見本画像との比較（HITOGATA、Stingray）、デカールが載ること、SSAO、モーションベクトル、影。
 
+**P1 の結果（2026-11-21、コミット前）**
+- 計算部: `SMCommon.hlsl`（SRP Core のみ）＋新しい `SMSurface.hlsl`（照明の手前まで）。Shader Graph 用の入口は `SMGraph.hlsl`（`SMLit` / `SMAlpha` / `SMGlass`）。URP の `SMLit.shader`・`SMGlass.shader`・`SMForward.hlsl` は `hdrp` ブランチから削除（`urp-final` に残る）。
+- グラフは手で編集せず `unity/tools/make_sm_graphs.py` で生成する（プロパティの一覧はスクリプトの中。オブジェクト ID は名前から作るので、作り直しても差分が出ない）。
+- **UV の割り当てが変わった**: HDRP はモーションベクトルのパスで TEXCOORD4 を使うため、SMC-DETAILS の「凸の角までの距離」は **UV4 → UV1** に移した（UV5 静止位置、UV6 静止法線、UV7 凹の角は同じ）。P2 で SMDetailsBuilder の書き込み先を UV1 にすること。UV1 はライトマップ用だが、SM の機体はライトマップを使わない前提。
+- HDRP の設定: Lit は Specular Color・クリアコート・両面（Flip）・Alpha Clip（不透明のマテリアルでは切る）。SM の発光は露出を打ち消す（Blender / URP と同じ明るさ）。
+- 注意: HDRP がまだ一度も描画していないとき（バッチモード、開いた直後の取り込み）は `Shader.globalRenderPipeline` が空で、HDRP のマテリアル検証が何もしない。`SMMaterialSetup.Validate` がこのタグを先に入れる。
+- 確認済み（SMC-HDRP-DEV、バッチ）: HITOGATA・ROBO-TEST の見本との比較、全バリアント（不透明・切り抜き・コート・アトラス・汚し・ガラス）のコンパイルと描画、シェーダーエラー 0。未確認: デカール、SSAO・モーションベクトルの見た目、Stingray（P3/P4 の後）。
+
 ### P2 SMC-DETAILS
-1. Details Lit → HDRP Shader Graph（P1 の部品を再利用）。
+1. Details Lit → HDRP Shader Graph（P1 の部品を再利用）。SMDetailsBuilder の凸の角のデータは UV1 に書く（上記）。
 2. 車輪・履帯の判定を `HDRP/Lit` と HDRP のプロパティ名（`_BaseColorMap`、`_NormalMap`、`_MaskMap` の A）にする。
 3. デカールを HDRP の DecalProjector と `HDRP/Decal` にする。ウィンドウの URP 設定チェックは HDRP 用（Frame Settings）に書き換える。
 4. 確認: 汚し 8 種、ブラシ、プリセット、履帯の泥・砂が URP 版と同じに見えること。
+
+**P2 の結果（2026-11-21、コミット前）**
+- `Details Lit` も `make_sm_graphs.py` で生成（HDRP Lit・メタリック・片面、プロパティ名は HDRP/Lit と同じ: `_BaseColorMap`、`_MaskMap`＋remap、`_NormalMap`）。計算は `com.smcad.details/Runtime/Shaders/SMDetailsGraph.hlsl`（SMDetails.hlsl をそのまま使う）。URP の `SMDetailsLit.shader` は削除。生成し直しても SM Lit / SM Glass は 1 バイトも変わらないことを確認。
+- 凸の角のデータは UV1 に書く（SMDetailsEdges）。元メッシュの UV1 は引き継がない。
+- 複製の判定は `HDRP/Lit`、複製後に `SMMaterialSetup.Validate`。履帯のリンク（実行時）も HDRP/Lit の名前でコピー。
+- デカールは HDRP の DecalProjector＋`HDRP/Decal`（色だけを載せる）。ウィンドウの警告は「HDRP アセットの Decals」が無効なとき。
+- パッケージ: com.smcad.details 0.2.0（HDRP 17.3、com.smcad.unity 0.4.0）。
+- 確認済み（SMC-HDRP-DEV、バッチ、ROBO-TEST）: 解析 3 秒、全 17 マテリアルに汚し、プリセット 4 種、角・くぼみの表示、SM Lit と地面へのデカール、Details Lit の全バリアント（通常・汚し・履帯）のコンパイル。画像は `verify/hdrp/p2`。
+- 未確認: 手描きブラシ（シーンビューの操作なのでバッチでは試せない）、履帯・車輪（P3 のタンクリギングが HDRP になってから）、URP 版との並べた比較（戦車で P3/P4 の後）。
 
 ### P3 タンクリギング
 1. パーティクル用の HDRP Shader Graph（Unlit、加算と半透明）をパッケージに入れ、TankFxFactory を対応させる。
