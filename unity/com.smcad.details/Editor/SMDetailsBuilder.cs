@@ -133,8 +133,8 @@ namespace SMCAD.Details.Editor
             else
             {
                 // HDRP/Lit, and every track-link material (SM Lit has no belt mode): the small Details Lit shader
-                if (create) c = new Material(Shader.Find(DetailsLit));
-                else c.shader = Shader.Find(DetailsLit);
+                if (create) c = new Material(SMCAD.Editor.SMMaterialSetup.FindShader(DetailsLit));
+                else c.shader = SMCAD.Editor.SMMaterialSetup.FindShader(DetailsLit);
                 CopyLitLook(o, c);
             }
             SMCAD.Editor.SMMaterialSetup.Validate(c);   // HDRP keywords / passes / queue (+ the SMC-DETAILS keyword)

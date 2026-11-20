@@ -97,6 +97,15 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 2. 地面を `HDRP/Lit` にする。マズル・ヘッドライト・尾灯を物理単位で調整し直す。
 3. 確認: 組み立て → Complete → 走行・射撃（バッチテストと撮影）。
 
+**P3 の結果（2026-11-21、コミット前）**
+- タンクリギング 0.8.0-alpha（HDRP 17.3 必須）。パーティクルはパッケージ内の `TankRig/Particle Unlit`（HDRP Unlit・半透明 / 加算、`make_sm_graphs.py` で生成。シェーダー名は m_Path＋ファイル名なのでファイル名は `Particle Unlit.shadergraph`）。HDRP の Unlit は露出をかけないので、色は URP と同じに見える。
+- ライトは物理単位: 発砲光 800,000 lm、前照灯 3,000 lm、尾灯 60 lm。地面は HDRP/Lit。古いマテリアルは同じファイルのまま差し替え。
+- 移行用の道具を 2 つ追加: `Tools > SMC-AD > URP のマテリアルを HDRP に変換`（SM Lit / Glass / Details Lit / URP Lit。.mat に書かれた旧シェーダーの GUID で探すので、シェーダーが消えていても値を引き継ぐ）、`Tools > TankRig > HDRP に合わせる（ライト・エフェクト）`。
+- 注意: `Shader.Find` は読み込み済みのシェーダーしか見つけない。パッケージの Shader Graph は名前で見つからないことがあるので、ファイルのパスから読む（`SMMaterialSetup.FindShader`、`HDRPSetup.ParticleShader`）。
+- 確認済み（SMC-HDRP-DEV、バッチ）: TANK TRACK DEV の戦車シーン（KS-25A3V）をそのまま持ち込み → 変換 → 見本と同じ 9 方向で撮影。形・カメラ・日の当たる面は一致。発砲（閃光・発砲光・煙）。ビルダーの自動組み立て（自動検出 → ポイント → 履帯 7W → 完成）、履帯のリンク、汚しが履帯・車輪にも付くこと。画像は `verify/hdrp/p3`。
+- 未確認: 走行（Play モードが必要。P4 で Play モードのテストを作る）、前照灯・尾灯の見た目（夜のシーン）。影側が URP より暗いのは、持ち込んだシーンに HDRP の空（Volume）がないため → P4 のシーン作り直しで直す。
+- 気づいたこと（HDRP とは無関係）: スクリプトで自動組み立てすると、KS-25A3V は前後が逆で履帯が外へ開く。ウィンドウで手直しする前提なら問題ないが、自動検出の改善候補。
+
 ### P4 開発用プロジェクトの道具
 1. TestField: HDRP/Lit、HDRP/TerrainLit、メッシュの草、PB Sky・霧・露出の Volume、太陽は lux。
 2. シーン（TankRig_Stingray、TestField）を新しいプロジェクトで作り直す（URP → HDRP の自動変換はない）。

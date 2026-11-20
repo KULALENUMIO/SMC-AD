@@ -15,6 +15,24 @@ namespace SMCAD.Editor
         public const string LitShader = "SMC-AD/SM Lit";
         public const string GlassShader = "SMC-AD/SM Glass";
 
+        public const string DetailsShader = "SMC-AD/Details Lit";
+
+        static readonly System.Collections.Generic.Dictionary<string, string> GraphPaths = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { LitShader, "Packages/com.smcad.unity/Runtime/Shaders/SM Lit.shadergraph" },
+            { GlassShader, "Packages/com.smcad.unity/Runtime/Shaders/SM Glass.shadergraph" },
+            { DetailsShader, "Packages/com.smcad.details/Runtime/Shaders/Details Lit.shadergraph" },
+        };
+
+        /// <summary>Shader.Find only sees shaders that are already loaded; a package Shader Graph nothing has used yet
+        /// (fresh project, batch mode) is not found by name, so it is loaded from its file.</summary>
+        public static Shader FindShader(string name)
+        {
+            var s = Shader.Find(name);
+            if (s == null && GraphPaths.TryGetValue(name, out var path)) s = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(path);
+            return s;
+        }
+
         public static bool IsSM(Material m) => m != null && m.shader != null && (m.shader.name == LitShader || m.shader.name == GlassShader);
 
         /// <summary>The SM side only (no HDRP validation): used by the material inspector before HDRP validates.</summary>

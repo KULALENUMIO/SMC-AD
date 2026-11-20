@@ -269,7 +269,7 @@ namespace SMCAD.Editor
             var extras = MiniJson.Obj(mJson, "extras");
             int smShader = extras != null ? MiniJson.Int(extras, "sm_shader", 1) : 1;
             bool glass = GlassShaders.Contains(smShader);
-            var shader = Shader.Find(glass ? GlassShader : LitShader);
+            var shader = SMMaterialSetup.FindShader(glass ? GlassShader : LitShader);
 
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             bool created = mat == null;
@@ -312,7 +312,7 @@ namespace SMCAD.Editor
 
         internal static bool IsGlass(int smShader) => GlassShaders.Contains(smShader);
 
-        internal static Shader ShaderFor(int smShader) => Shader.Find(IsGlass(smShader) ? GlassShader : LitShader);
+        internal static Shader ShaderFor(int smShader) => SMMaterialSetup.FindShader(IsGlass(smShader) ? GlassShader : LitShader);
 
         /// <summary>SM textures, alpha mode and render queue of an SM material.</summary>
         internal static void SetupTextures(Material mat, int smShader, Texture2D dif, Texture2D asg, Texture2D nor, bool created)
