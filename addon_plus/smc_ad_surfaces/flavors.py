@@ -25,11 +25,33 @@ def user_dir():
         os.makedirs(override, exist_ok=True)
         return override
     try:
-        return bpy.utils.extension_path_user(__package__, create=True)
+        path = bpy.utils.extension_path_user(__package__, create=True)
     except (ValueError, AttributeError, TypeError):
-        path = os.path.join(bpy.utils.user_resource("CONFIG"), "smc_ad_plus_surfaces")
+        path = os.path.join(bpy.utils.user_resource("CONFIG"), "smc_ad_surfaces")
         os.makedirs(path, exist_ok=True)
-        return path
+    _take_over_old_flavors(path)
+    return path
+
+
+OLD_ID = "smc_ad_plus_surfaces"   # the id before 0.4.0 (then named "SMC-AD+ Surfaces")
+
+
+def _take_over_old_flavors(path):
+    """0.4.0 renamed the extension (smc_ad_plus_surfaces -> smc_ad_surfaces), which moves its user folder.
+    Copy the user's own flavours from the old folder once, so nothing is lost."""
+    new_file = os.path.join(path, USER_FILE_NAME)
+    if os.path.isfile(new_file):
+        return
+    for old_dir in (os.path.join(os.path.dirname(path), OLD_ID),
+                    os.path.join(bpy.utils.user_resource("CONFIG"), OLD_ID)):
+        old_file = os.path.join(old_dir, USER_FILE_NAME)
+        if os.path.isfile(old_file):
+            try:
+                with open(old_file, encoding="utf-8") as src, open(new_file, "w", encoding="utf-8") as dst:
+                    dst.write(src.read())
+            except OSError:
+                pass
+            return
 
 
 def user_file():

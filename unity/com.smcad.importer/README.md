@@ -1,4 +1,6 @@
-# SMC-AD Scrap Mechanic Importer (Unity)
+# SMC-AD Importer for Unity（`com.smcad.importer`）
+
+> 0.5.0 で名前を整理しました（旧 `com.smcad.unity` / SMC-AD Scrap Mechanic Importer）。古い方を外してから入れてください。
 
 > **Alpha / experimental prototype.** Updated on a whim; don't expect regular updates or support. The repository may be deleted or replaced if a proper release is ever made.
 

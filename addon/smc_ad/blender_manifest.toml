@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "smc_ad"
-version = "0.6.0"
+version = "0.7.0"
 name = "SMC-AD"
 tagline = "SMConverter の glTF から Scrap Mechanic の機体を取り込む"
 maintainer = "SMC-AD Project"

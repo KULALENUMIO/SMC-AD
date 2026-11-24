@@ -10,7 +10,7 @@ using UnityEngine.Rendering.HighDefinition;
 namespace SMCAD.Editor
 {
     /// <summary>
-    /// Moves materials made with the URP versions over to HDRP (the SMC-AD line is HDRP only from com.smcad.unity 0.4).
+    /// Moves materials made with the URP versions over to HDRP (the SMC-AD line is HDRP only from 0.4, when this package was still com.smcad.unity).
     /// The URP shaders are gone, so such materials show as pink; their saved values are still in the file and are kept:
     ///   SM Lit / SM Glass (URP .shader)  -> the SM Lit / SM Glass Shader Graphs (same property names)
     ///   Details Lit (URP, SMC-DETAILS)   -> Details Lit graph (_BaseMap / _BumpMap / _BumpScale renamed as in HDRP/Lit)

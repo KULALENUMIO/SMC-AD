@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""SMC-AD+ Surfaces: surface types (painted metal, bare metal, rubber, plastic, wood, stone) for SMC-AD.
+"""SMC-AD Surfaces: surface types (painted metal, bare metal, rubber, plastic, wood, stone) for SMC-AD.
 
 An extension of the SMC-AD core add-on (enable SMC-AD first). It adds one node per material,
 "SMC+.Surface", after the core's layer reroutes (frame ④), and a panel to pick and adjust surface
@@ -60,7 +60,7 @@ _HOOKS = (("material_built", _on_material_built), ("imported", _on_imported), ("
 def register():
     core = core_link.find()
     if core is None:
-        raise RuntimeError("SMC-AD+ Surfaces には SMC-AD アドオンが必要です。先に SMC-AD を有効にしてください")
+        raise RuntimeError("SMC-AD Surfaces には SMC-AD アドオンが必要です。先に SMC-AD を有効にしてください")
 
     bpy.types.Scene.smcadp_auto_assign = bpy.props.BoolProperty(
         name="取り込み時に材質を自動で割り当て",
@@ -79,7 +79,7 @@ def register():
         bpy.utils.register_class(cls)
     parts.register()
     if getattr(core.api, "API_VERSION", 1) < 3:
-        raise RuntimeError("SMC-AD+ Surfaces には SMC-AD 0.5.0 以降が必要です。先に SMC-AD を更新してください")
+        raise RuntimeError("SMC-AD Surfaces には SMC-AD 0.5.0 以降が必要です。先に SMC-AD を更新してください")
     for hook_list, fn in _HOOKS:
         hooks = getattr(core.api, hook_list)
         if fn not in hooks:

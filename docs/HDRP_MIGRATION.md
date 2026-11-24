@@ -137,6 +137,8 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 - ScreenRecorder を SMC-HDRP-DEV へ移植（描画方式に依存しないのでコードは無変更）。バッチモードでは `WaitForEndOfFrame` が来ないため録画は 0 フレーム → テストはバッチでは飛ばす。**エディタで F12 を押しての確認が必要**。
 - 実物のガラス・アトラスの機体は手元の見本にない（球では描画を確認済み）。手描きブラシと材質の画面はエディタで触って確認が必要。
 
+**名前の整理（2026-11-24）**: この文書の `com.smcad.unity` は `com.smcad.importer`、`com.tankrig.unity` は `com.smcad.tankrig`（フォルダ `E:\ClaudeCode\SMC-AD-TankRigging`）になった。`SMCAD_TestProject`・TANK TRACK DEV・`_URP-Archive` は削除済み（URP 版のコードは `urp-final` タグに残る）。
+
 ## 5. バックグラウンドでの作業の決まり
 
 - Unity は `-batchmode`（ウィンドウなし）で、オーナーが開いていないプロジェクトにだけ使う。Unity MCP（エディタを前面に出す必要がある）は使わない。

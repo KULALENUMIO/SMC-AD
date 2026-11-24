@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Writes the HDRP Shader Graphs of the SMC-AD line: SM Lit / SM Glass (com.smcad.unity), Details Lit
+"""Writes the HDRP Shader Graphs of the SMC-AD line: SM Lit / SM Glass (com.smcad.importer), Details Lit
 (com.smcad.details) and the particle shader of the Tank Rigging plugin (sibling repo, if it is there).
 
 The graphs are thin: blackboard properties (every material property, so they land in UnityPerMaterial for the
@@ -11,14 +11,14 @@ Object ids are derived from names, so re-running gives the same files (clean dif
 import hashlib, json, os, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SHADERS = os.path.join(HERE, '..', 'com.smcad.unity', 'Runtime', 'Shaders')
+SHADERS = os.path.join(HERE, '..', 'com.smcad.importer', 'Runtime', 'Shaders')
 SMGRAPH_GUID = '5c3b7e1a9d2f4e60a8b1c7d3e9f20411'   # SMGraph.hlsl.meta
 DETAILS_SHADERS = os.path.join(HERE, '..', 'com.smcad.details', 'Runtime', 'Shaders')
 DETAILS_GUID = '7e5d9a3c1b4f4a82b6d0e2f4a8c61733'   # SMDetailsGraph.hlsl.meta (com.smcad.details)
 GUI = 'SMCAD.Editor.SMLitGUI'
-TANKRIG_SHADERS = os.path.join(HERE, '..', '..', '..', 'Unity Tank Rigging Addon', 'com.tankrig.unity', 'Runtime', 'Shaders')
-PARTICLE_GUID = '8f6e0b4d2c5a4b93c7e1f3a5b9d72844'   # TankRigParticle.hlsl.meta (com.tankrig.unity)
-RING_GUID = '3b8e5c1f7a2d4c69b0e4f6a8c2d1e957'   # TankRigRingInterior.hlsl.meta (com.tankrig.unity)
+TANKRIG_SHADERS = os.path.join(HERE, '..', '..', '..', 'SMC-AD-TankRigging', 'com.smcad.tankrig', 'Runtime', 'Shaders')
+PARTICLE_GUID = '8f6e0b4d2c5a4b93c7e1f3a5b9d72844'   # TankRigParticle.hlsl.meta (com.smcad.tankrig)
+RING_GUID = '3b8e5c1f7a2d4c69b0e4f6a8c2d1e957'   # TankRigRingInterior.hlsl.meta (com.smcad.tankrig)
 RING_PROPS = r'''
 _InnerDiameter ("ターレットリングの内径（m）", Float) = 2.25
 _RingWidth ("ターレットリングの幅（m）", Float) = 0.16

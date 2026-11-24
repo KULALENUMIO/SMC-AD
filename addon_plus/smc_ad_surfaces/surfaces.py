@@ -794,7 +794,7 @@ def export_material(material, smcad, report):
         if sock is not None and sock.is_linked and sock.links[0].from_node.name != reroute:
             report.add("warning", material.name, "材質ノードの手前（%s）にある手作業のノードは Unity には反映されません" % name)
     if group.name != GROUP_PREFIX + sid and not is_local(group):
-        report.add("warning", material.name, "材質グループ「%s」は SMC-AD+ のものではないため、値だけを書き出しました" % group.name)
+        report.add("warning", material.name, "材質グループ「%s」は SMC-AD Surfaces のものではないため、値だけを書き出しました" % group.name)
     if float(values.get("noise", 0.0)) > 0.0:
         owner = ("このマテリアル専用の" if is_local(group) else "") + "「%s」" % label_of(sid)
         report.add("info", owner, "「ざらつきのムラ」の模様は Unity では別のノイズになります（強さ・細かさは同じ）",

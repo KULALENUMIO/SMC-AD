@@ -1,5 +1,14 @@
 # SMC-AD 変更履歴
 
+## 名前の整理と版数（SMC-AD 0.7.0 / SMC-AD Surfaces 0.4.0 / SMC-AD Importer for Unity 0.5.0 / SMC-DETAILS for Unity 0.4.0）— 2026-11-24
+- **名前と ID をそろえた**（古いものを外してから入れ直す）
+  - Blender「SMC-AD+ Surfaces」（`smc_ad_plus_surfaces`）→「**SMC-AD Surfaces**」（`smc_ad_surfaces`）。サイドバーのタブも「SMC-AD Surfaces」。自分で保存した味付け（`user_flavors.json`）は最初の起動で古いフォルダから引き継ぐ。保存済みの .blend の材質の値はそのまま読める
+  - Unity「SMC-AD Scrap Mechanic Importer」（`com.smcad.unity`）→「**SMC-AD Importer for Unity**」（`com.smcad.importer`）。シェーダー名（`SMC-AD/SM Lit` など）、スクリプトの名前空間とアセンブリ名はそのままなので、作ったマテリアルやプレハブはそのまま使える
+  - Unity「SMC-DETAILS for Unity（仮）」→「**SMC-DETAILS for Unity**」（`com.smcad.details`、依存先は `com.smcad.importer`）
+  - タンクリギングは「SMC-AD Tank Rigging for Unity」（`com.smcad.tankrig`、別リポジトリ SMC-AD-TankRigging）
+- SMC-AD 0.7.0: 0.6.0 以降の「左右反転コピー（先の部品も）」、量産向けのアトラス書き出し（試作）、FBX 書き出しの改良を版数に反映
+- SMC-DETAILS for Unity 0.4.0: 装備（チェーン・カモネット・布）、辺に沿ったチェーン、作業用の表示
+- **削除**: Blender 版 SMC-DETAILS（凍結していた `addon_plus/smc_details`）と URP 用の確認プロジェクト `unity/SMCAD_TestProject` を、履歴からも消した
 ## Unity 側を HDRP 専用に（com.smcad.unity 0.4.0 / com.smcad.details 0.2.0 / タンクリギング 0.8.0-alpha）— 2026-11-21
 - **Unity 側は HDRP（Unity 6000.3 / HDRP 17.3 以降）だけに対応**。URP 版は `urp-final` タグに残す（Blender 側の動作は変わらない）
 - SM Lit / SM Glass を HDRP の Shader Graph（Lit・Specular Color・クリアコート・両面）にした。SM の計算は描画方式に依存しない HLSL（`SMSurface.hlsl`、`SMCommon.hlsl`）に分け、グラフは `unity/tools/make_sm_graphs.py` で生成する。SM の発光はカメラの露出を打ち消し、Blender と同じ明るさに見える

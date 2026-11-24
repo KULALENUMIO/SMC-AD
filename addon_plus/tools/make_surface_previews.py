@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Makes the small tileable textures used only by the surface-type thumbnails of SMC-AD+ Surfaces.
+"""Makes the small tileable textures used only by the surface-type thumbnails of SMC-AD Surfaces.
 
     python make_surface_previews.py            (needs numpy and Pillow; not needed by the add-on itself)
 
-Writes smc_ad_plus_surfaces/preview_textures/<id>_color.png and <id>_height.png (+ <id>_mask.png = paint
+Writes smc_ad_surfaces/preview_textures/<id>_color.png and <id>_height.png (+ <id>_mask.png = paint
 for metal_painted). They only have to read at a glance in a 64 px icon ("that's wood"), not be realistic.
 Every pattern is periodic, so the textures tile.
 """
@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 
 N = 256
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "smc_ad_plus_surfaces", "preview_textures")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "smc_ad_surfaces", "preview_textures")
 rng = np.random.default_rng(7)
 
 y, x = np.mgrid[0:N, 0:N] / N  # 0..1, periodic over the tile

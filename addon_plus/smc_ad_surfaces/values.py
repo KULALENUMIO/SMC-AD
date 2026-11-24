@@ -79,7 +79,7 @@ SMCADP_SurfaceValues = _make_class()
 
 def register():
     bpy.utils.register_class(SMCADP_SurfaceValues)
-    bpy.types.ShaderNodeTree.smcadp_values = bpy.props.PointerProperty(type=SMCADP_SurfaceValues, name="SMC-AD+ 材質の値")
+    bpy.types.ShaderNodeTree.smcadp_values = bpy.props.PointerProperty(type=SMCADP_SurfaceValues, name="SMC-AD Surfaces 材質の値")
 
 
 def unregister():

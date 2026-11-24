@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Custom Function of the Details Lit Shader Graph (HDRP Lit, metallic): a small HDRP/Lit replacement (base colour
 // map / colour, metallic, smoothness, mask map, normal map; same property names as HDRP/Lit) with the same wear and
-// dirt layer as SM Lit (SMDetails.hlsl of com.smcad.unity). Used for parts that come with the blueprint but are not
+// dirt layer as SM Lit (SMDetails.hlsl of com.smcad.importer). Used for parts that come with the blueprint but are not
 // SM parts, e.g. the wheels of the Tank Rigging plugin.
 // _SMD_BELT: track links (they move along the belt) — soil only, computed in the link's own object space.
 // Vertex data as SM Lit on HDRP: UV1 convex edges, UV5 rest position, UV6 rest normal, UV7 concave edges.
@@ -12,7 +12,7 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 #if defined(_SMCAD_DETAILS)
-#include "Packages/com.smcad.unity/Runtime/Shaders/SMDetails.hlsl"
+#include "Packages/com.smcad.importer/Runtime/Shaders/SMDetails.hlsl"
 #endif
 
 void DetailsLit_float(float4 UV0, float4 UV1, float4 UV5, float4 UV6, float4 UV7,

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Panels for people who never open the shader editor (S5-S11).
 
-  SMC-AD+ Surfaces（材質）   pick parts by clicking, choose a surface type from thumbnails
+  SMC-AD Surfaces（材質）   pick parts by clicking, choose a surface type from thumbnails
     ├ 味付けと調整           flavours, everyday-word sliders, who the sliders affect, reset
     └ 一括・設定             batch over the core scope, import option, preset files
 """
@@ -47,7 +47,7 @@ def _bodies_using(material):
 class SMCADP_PT_surfaces(bpy.types.Panel):
     bl_idname = "SMCADP_PT_surfaces"
     bl_label = "材質（Surfaces）" + ("  v" + VERSION if VERSION else "")
-    bl_category = "SMC-AD+"
+    bl_category = "SMC-AD Surfaces"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
@@ -107,7 +107,7 @@ class SMCADP_PT_surfaces(bpy.types.Panel):
 class SMCADP_PT_adjust(bpy.types.Panel):
     bl_idname = "SMCADP_PT_adjust"
     bl_label = "味付けと調整"
-    bl_category = "SMC-AD+"
+    bl_category = "SMC-AD Surfaces"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_parent_id = "SMCADP_PT_surfaces"
@@ -189,7 +189,7 @@ def _slider(layout, vals, key, wide):
 class SMCADP_PT_batch(bpy.types.Panel):
     bl_idname = "SMCADP_PT_batch"
     bl_label = "一括・設定"
-    bl_category = "SMC-AD+"
+    bl_category = "SMC-AD Surfaces"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_parent_id = "SMCADP_PT_surfaces"

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Extension points for SMC-AD+ add-ons.
+"""Extension points for the SMC-AD extension add-ons (Surfaces etc.).
 
 The core never imports an extension. An extension finds the core module and appends its callables
 to these lists in register(), and removes them again in unregister().

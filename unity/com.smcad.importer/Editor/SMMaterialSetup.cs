@@ -19,8 +19,8 @@ namespace SMCAD.Editor
 
         static readonly System.Collections.Generic.Dictionary<string, string> GraphPaths = new System.Collections.Generic.Dictionary<string, string>
         {
-            { LitShader, "Packages/com.smcad.unity/Runtime/Shaders/SM Lit.shadergraph" },
-            { GlassShader, "Packages/com.smcad.unity/Runtime/Shaders/SM Glass.shadergraph" },
+            { LitShader, "Packages/com.smcad.importer/Runtime/Shaders/SM Lit.shadergraph" },
+            { GlassShader, "Packages/com.smcad.importer/Runtime/Shaders/SM Glass.shadergraph" },
             { DetailsShader, "Packages/com.smcad.details/Runtime/Shaders/Details Lit.shadergraph" },
         };
 

@@ -155,7 +155,7 @@
 			"noise_scale": 10.0
 		}
 	},
-	"flavors_description": "Flavours (味付け) per surface type for SMC-AD+ Surfaces: values override the surface preset. User flavours are saved to a separate user file with the same format.",
+	"flavors_description": "Flavours (味付け) per surface type for SMC-AD Surfaces: values override the surface preset. User flavours are saved to a separate user file with the same format.",
 	"flavors": {
 		"metal_painted": [
 			{
