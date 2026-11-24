@@ -130,6 +130,13 @@ Unity 公式の「Render Pipelines strategy for 2026」（2026-02-23、Unity ス
 - リリース用の tgz を `dist_release/hdrp-2026-11-21/` に作成（com.smcad.unity 0.4.0、com.smcad.details 0.2.0、com.tankrig.unity 0.8.0-alpha、SHA256SUMS、RELEASE_NOTES 下書き）。SMC-HDRP-DEV に tgz から入れて全シェーダーの組み合わせが動くことを確認。
 - 残り（オーナーの了承待ち）: GitHub への push（`hdrp` ブランチ・`urp-final` タグ）、リリースの公開。`SMCAD_TestProject` は URP のまま凍結（HDRP のテストは SMC-HDRP-DEV にある。リポジトリに入れるなら別途）。
 
+**残りの確認（2026-11-21）**
+- .glb の直接取り込み（SMBlueprintImporter）: hitogata_edited / plain を URP の見本と比較、色・テクスチャ一致。
+- 機銃（1.5 秒で 19 発・曳光弾・着弾 7）、副砲、主砲の着弾エフェクト、Kinematic 走行（4 秒で約 30 m）: Play モードのテスト `WeaponsAndKinematic` 合格。
+- 夜: 前照灯（3,000 lm）が木を照らし、尾灯（ブレーキで 3 倍）が赤く光る。
+- ScreenRecorder を SMC-HDRP-DEV へ移植（描画方式に依存しないのでコードは無変更）。バッチモードでは `WaitForEndOfFrame` が来ないため録画は 0 フレーム → テストはバッチでは飛ばす。**エディタで F12 を押しての確認が必要**。
+- 実物のガラス・アトラスの機体は手元の見本にない（球では描画を確認済み）。手描きブラシと材質の画面はエディタで触って確認が必要。
+
 ## 5. バックグラウンドでの作業の決まり
 
 - Unity は `-batchmode`（ウィンドウなし）で、オーナーが開いていないプロジェクトにだけ使う。Unity MCP（エディタを前面に出す必要がある）は使わない。

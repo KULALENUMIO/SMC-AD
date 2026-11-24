@@ -38,6 +38,34 @@ namespace SMCAD.Details.Editor.Decor
             return chain;
         }
 
+        /// <summary>A new chain along any path (root-local points with their outward directions), on the given part.
+        /// Points closer than 5 mm to the previous one are dropped.</summary>
+        public static SMDecorChain CreateFromPath(SMDecorSet set, Transform part, IList<(Vector3 p, Vector3 o)> rootPath)
+        {
+            var root = set.transform;
+            if (part == null) part = root;
+            var go = new GameObject("チェーン " + (set.items.Count(x => x is SMDecorChain) + 1));
+            Undo.RegisterCreatedObjectUndo(go, "チェーンを付ける");
+            go.transform.SetParent(part, false);
+            go.layer = part.gameObject.layer;
+            var chain = go.AddComponent<SMDecorChain>();
+            chain.set = set;
+            chain.part = part;
+            chain.seed = Random.Range(0, 100000);
+            var partFromRoot = part.worldToLocalMatrix * root.localToWorldMatrix;
+            foreach (var (p, o) in rootPath)
+            {
+                var lp = partFromRoot.MultiplyPoint3x4(p);
+                if (chain.path.Count > 0 && Vector3.Distance(chain.path[chain.path.Count - 1], lp) < 0.005f) continue;
+                chain.path.Add(lp);
+                chain.outward.Add(partFromRoot.MultiplyVector(o).normalized);
+            }
+            Undo.RecordObject(set, "チェーンを付ける");
+            set.items.Add(chain);
+            Rebuild(chain);
+            return chain;
+        }
+
         /// <summary>Joins a ridge to the end of the chain when one of its ends touches the chain's last point.</summary>
         public static bool Append(SMDecorChain chain, SMDecorRidge ridge)
         {

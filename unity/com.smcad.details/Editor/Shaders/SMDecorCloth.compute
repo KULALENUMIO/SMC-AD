@@ -3,13 +3,18 @@
 //   Integrate: verlet step with gravity and damping, swept against the distance field (thin plates are not skipped)
 //   Solve:     Jacobi pass over the stretch / shear / bend constraints of every point (gathered from its neighbours,
 //              cut cells leave theirs out), ping-pong
-//   Collide:   out of the body along the field's gradient, friction, the floor under the vehicle
+//   Collide:   out of the body along the field's gradient, friction, the floor under the vehicle. SM vehicles are
+//              hollow shells (the field is open again under a turret roof), so each point remembers the last place
+//              where it was clearly clear of the body (_Safe): a surface crossed since then (constraints can pull a
+//              point through a thin plate) puts it back before that surface, and the push out of a plate goes to the
+//              side it came from. Without this a sheet falls through the roof and floor by floor to the bottom.
 #pragma kernel Integrate
 #pragma kernel Solve
 #pragma kernel Collide
 
 RWStructuredBuffer<float4> _Pos;
 RWStructuredBuffer<float4> _Prev;
+RWStructuredBuffer<float4> _Safe;     // last position clear of the body
 StructuredBuffer<float4> _PosIn;
 RWStructuredBuffer<float4> _PosOut;
 StructuredBuffer<uint> _Flags;      // bit 0 pinned, bit 1 used
@@ -22,7 +27,7 @@ float _Voxel, _MaxDist;
 
 int2 _N;            // points nu, nv
 float _Du, _Dv, _Diag, _Bend;
-float _Thick, _Damp, _Floor, _Omega;
+float _Thick, _Damp, _Floor, _Omega, _PoleR;
 float3 _Down, _Gstep;
 
 float Dist(float3 p)
@@ -40,6 +45,42 @@ float3 Grad(float3 p)
                       Dist(p + float3(0, 0, h)) - Dist(p - float3(0, 0, h)));
     float l = length(g);
     return l > 1e-6 ? g / l : -_Down;
+}
+
+
+// A thin upright thing (antenna, rod, pole, up to the cloth's poleWidth across): the sheet does not rest on it (it would hang
+// in a tall cone); the pole goes through the sheet instead. The thing's middle is found under the point (touching its
+// top) or behind it (touching its side: how far it goes on along the push direction); from there it must be open on
+// all four sides, there and 12 cm lower. Walls, plates and bars are long one way, so they still hold the sheet.
+bool Pole(float3 p)
+{
+    if (_PoleR <= 0) return false;
+    float d = Dist(p);
+    float3 g = Grad(p);
+    float3 gh = g - _Down * dot(g, _Down);
+    float3 c;
+    if (length(gh) < 0.5) c = p + _Down * (d + _Thick);
+    else
+    {
+        float3 n = normalize(gh);
+        float w = -1;
+        for (int s = 1; s <= 12; s++)
+        {
+            float a = d + 2 * _PoleR * s / 12.0;
+            if (Dist(p - n * a) > _Thick) { w = a - d; break; }
+        }
+        if (w < 0) return false;
+        c = p - n * (d + w * 0.5);
+    }
+    float3 h1 = normalize(cross(_Down, abs(_Down.x) < 0.9 ? float3(1, 0, 0) : float3(0, 0, 1)));
+    float3 h2 = cross(_Down, h1);
+    [unroll] for (int k = 0; k < 2; k++)
+    {
+        float3 q = c + _Down * (k == 0 ? 0 : 0.12);
+        if (Dist(q + h1 * _PoleR) < _Thick || Dist(q - h1 * _PoleR) < _Thick ||
+            Dist(q + h2 * _PoleR) < _Thick || Dist(q - h2 * _PoleR) < _Thick) return false;
+    }
+    return true;
 }
 
 bool Cell(int i, int j) { return i >= 0 && j >= 0 && i < _N.x - 1 && j < _N.y - 1 && _Alive[i + (_N.x - 1) * j] != 0; }
@@ -61,7 +102,7 @@ void Integrate(uint3 id : SV_DispatchThreadID)
     {
         int n = min(48, (int)ceil(len / probe));
         for (int s = 1; s <= n; s++)
-            if (Dist(x + stepV * ((float)s / n)) < _Thick)
+            if (Dist(x + stepV * ((float)s / n)) < _Thick && !Pole(x + stepV * ((float)s / n)))
             {
                 stepV *= (float)(s - 1) / n;
                 prevNew = x + stepV;
@@ -123,15 +164,35 @@ void Collide(uint3 id : SV_DispatchThreadID)
     if (k >= (uint)(_N.x * _N.y)) return;
     uint f = _Flags[k];
     if ((f & 1) != 0 || (f & 2) == 0) return;
-    float3 x = _Pos[k].xyz, pv = _Prev[k].xyz;
-    float d = Dist(x);
-    if (d < _Thick)
+    float3 x = _Pos[k].xyz, pv = _Prev[k].xyz, s = _Safe[k].xyz;
+    // a surface crossed since the last safe place: back to just before it
+    float3 dv = x - s;
+    float len = length(dv);
+    float probe = _Thick * 0.25;
+    if (len > probe)
     {
-        x += Grad(x) * (_Thick - d);
+        int n = min(64, (int)ceil(len / probe));
+        for (int i = 1; i <= n; i++)
+            if (Dist(s + dv * ((float)i / n)) < _Thick * 0.5 && !Pole(s + dv * ((float)i / n)))
+            {
+                x = s + dv * ((float)(i - 1) / n);
+                pv = lerp(pv, x, 0.7);
+                break;
+            }
+    }
+    float d = Dist(x);
+    if (d < _Thick && !Pole(x))
+    {
+        // out along the slope of the field, to the side the point came from
+        float3 g = Grad(x);
+        float3 toSafe = s - x;
+        if (dot(toSafe, toSafe) > 1e-8 && dot(g, toSafe) < 0) g = -g;
+        x += g * (_Thick - d);
         pv = lerp(pv, x, 0.7);
     }
     float depth = dot(x, _Down);
     if (depth > _Floor) { x -= _Down * (depth - _Floor); pv = lerp(pv, x, 0.8); }
     _Pos[k] = float4(x, 0);
     _Prev[k] = float4(pv, 0);
+    if (Dist(x) >= _Thick * 0.7 || Pole(x)) _Safe[k] = float4(x, 0);
 }

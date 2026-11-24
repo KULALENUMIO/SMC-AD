@@ -3,7 +3,11 @@
 //   1 the four corners (root-local), ordered around their centre
 //   2 a grid larger than the quad between them by "extra", started as a dome above it and lifted clear of the body
 //   3 position-based dynamics: stretch, shear and bend constraints, gravity, contact with the signed distance field
-//     (thickness), friction, the floor under the vehicle, corners pinned (optional); cut cells (D3) are left out
+//     (thickness), friction, the floor under the vehicle, corners pinned (optional); cut cells (D3) are left out.
+//     SM vehicles are hollow shells, so every point keeps the last place where it was clear of the body and is never
+//     let through a surface from there (else the sheet falls through the roof into the vehicle). Contact is kept at
+//     least ~ the field's voxel (finer thicknesses are below what the field can tell) and pulled in to the asked
+//     thickness at the end where the field allows it. Thin upright things (antennas) go through the sheet.
 //   4 mesh: the sheet (UV in metres, UV1.x = how free the vertex hangs, for the wind in D4) and, for a net,
 //     leaf strips ("garnish") as a second sub-mesh
 using System.Collections.Generic;
@@ -30,6 +34,10 @@ namespace SMCAD.Details.Decor
             float thick = Mathf.Max(0.002f, c.thickness);
             // a camouflage net is bulky (the leaf strips stand off it): it rests on things instead of dropping into gaps
             if (c.type == SMDecorClothType.CamoNet) thick = Mathf.Max(thick, 0.015f + 0.025f * c.garnish);
+            float visual = Mathf.Max(thick, set.voxel * 0.7f); // how far the finished sheet stands off the body (closer than
+                                                               // this, small details of the vehicle poke through it)
+            thick = Mathf.Max(thick, set.voxel * 0.7f);        // contact while settling: what the field can resolve
+            poleR = c.poleWidth > 0f ? c.poleWidth * 0.5f + set.voxel * 0.5f + thick : 0f;
 
             // 1 corners, counter-clockwise around their centre (seen from above the sheet)
             var K = new Vector3[4]; var Kn = new Vector3[4];
@@ -118,8 +126,8 @@ namespace SMCAD.Details.Decor
                     // start above everything in this column (the sheet then settles on the highest points, like a tent)
                     float step = set.voxel;
                     for (float hgt = 2.5f; hgt > 0f; hgt -= step)
-                        if (set.Distance(p + up * hgt) < thick * 1.5f) { p += up * (hgt + thick * 3f); break; }
-                    for (int s = 0; s < 400 && set.Distance(p) < thick * 1.5f; s++) p += up * step;
+                        if (set.Distance(p + up * hgt) < thick * 1.5f && !Pole(set, p + up * hgt, down, thick)) { p += up * (hgt + thick * 3f); break; }
+                    for (int s = 0; s < 400 && set.Distance(p) < thick * 1.5f && !Pole(set, p, down, thick); s++) p += up * step;
                     x[k] = p;
                     used[k] = Cell(i - 1, j - 1) || Cell(i, j - 1) || Cell(i - 1, j) || Cell(i, j);
                 }
@@ -150,27 +158,40 @@ namespace SMCAD.Details.Decor
 
             // 3 settle
             float floor = set.floor - thick;
+            var safe = (Vector3[])x.Clone();
             if (!reuse && gpu != null && SystemInfo.supportsComputeShaders)
-                GpuSettle(gpu, set, x, pin, used, alive, nu, nv, du, dv, bend, thick, down, floor);
-            else if (!reuse) CpuSettle(set, x, pin, used, CA, CB, CR, CK, thick, down, floor);
-            if (!reuse) c.lastShape = (Vector3[])x.Clone();
+                GpuSettle(gpu, set, x, safe, pin, used, alive, nu, nv, du, dv, bend, thick, down, floor);
+            else if (!reuse) CpuSettle(set, x, safe, pin, used, CA, CB, CR, CK, thick, down, floor);
             if (reuse) goto BuildMesh;
-            // final push out of the body (a few points can end up in thin gaps)
+            // final push out of the body (a few points can end up in thin gaps), to the side each point came from, then in
+            // to the asked thickness where the field allows it
             for (int k = 0; k < N; k++)
             {
                 if (pin[k] || !used[k]) continue;
+                if (Pole(set, x[k], down, thick)) continue;
+                Vector3 Out(Vector3 p, Vector3 grad) { var to = safe[k] - p; return to.sqrMagnitude > 1e-8f && Vector3.Dot(grad, to) < 0f ? -grad : grad; }
                 for (int s = 0; s < 40; s++)
                 {
                     float dist = set.Sample(x[k], out var grad);
                     if (dist >= thick * 0.9f) break;
-                    x[k] += grad * (thick - dist + 0.002f);
+                    x[k] += Out(x[k], grad) * (thick - dist + 0.002f);
+                }
+                if (visual < thick)
+                {
+                    float dist = set.Sample(x[k], out var grad);
+                    if (dist < thick * 1.4f)
+                    {
+                        var target = x[k] - Out(x[k], grad) * Mathf.Min(thick - visual, Mathf.Max(0f, dist - visual));
+                        if (set.Distance(target) > visual * 0.5f) x[k] = target;
+                    }
                 }
             }
+            if (!reuse) c.lastShape = (Vector3[])x.Clone();
 
         BuildMesh:
             // stats
             float pen = 0f;
-            for (int k = 0; k < N; k++) if (used[k] && !pin[k]) pen = Mathf.Max(pen, thick * 0.5f - set.Distance(x[k]));
+            for (int k = 0; k < N; k++) if (used[k] && !pin[k] && !Pole(set, x[k], down, thick)) pen = Mathf.Max(pen, visual * 0.5f - set.Distance(x[k]));
             st.size = new Vector2(W, H); st.particles = N; st.maxPenetration = Mathf.Max(0f, pen);
 
             // 4 mesh in the part's space
@@ -184,7 +205,7 @@ namespace SMCAD.Details.Decor
                 remap[k] = V.Count;
                 V.Add(partFromRoot.MultiplyPoint3x4(x[k]));
                 UV.Add(new Vector2((k % nu) * du / tile, (k / nu) * dv / tile));
-                UV1.Add(new Vector2(Mathf.Clamp01((set.Distance(x[k]) - thick) / 0.25f), 0f));
+                UV1.Add(new Vector2(Mathf.Clamp01((set.Distance(x[k]) - visual) / 0.25f), 0f));
             }
             var tris = new List<int>();
             for (int j = 0; j < nv - 1; j++)
@@ -213,7 +234,7 @@ namespace SMCAD.Details.Decor
         }
 
 
-        static void CpuSettle(SMDecorSet set, Vector3[] x, bool[] pin, bool[] used, int[] CA, int[] CB, float[] CR, float[] CK, float thick, Vector3 down, float floor)
+        static void CpuSettle(SMDecorSet set, Vector3[] x, Vector3[] safe, bool[] pin, bool[] used, int[] CA, int[] CB, float[] CR, float[] CK, float thick, Vector3 down, float floor)
         {
             int N = x.Length, M = CA.Length;
             var prev = (Vector3[])x.Clone();
@@ -234,7 +255,7 @@ namespace SMCAD.Details.Decor
                     {
                         int n = Mathf.Min(48, Mathf.CeilToInt(len / probe));
                         for (int s = 1; s <= n; s++)
-                            if (set.Distance(x[k] + stepV * ((float)s / n)) < thick)
+                            if (set.Distance(x[k] + stepV * ((float)s / n)) < thick && !Pole(set, x[k] + stepV * ((float)s / n), down, thick))
                             {
                                 stepV *= (float)(s - 1) / n;
                                 prev[k] = x[k] + stepV;   // stop there
@@ -261,21 +282,78 @@ namespace SMCAD.Details.Decor
                 for (int k = 0; k < N; k++)
                 {
                     if (pin[k] || !used[k]) continue;
-                    float dist = set.Sample(x[k], out var grad);
-                    if (dist < thick)
+                    // a surface crossed since the last safe place (hollow shells): back to just before it
+                    var dv = x[k] - safe[k];
+                    float len = dv.magnitude, probe = thick * 0.25f;
+                    if (len > probe)
                     {
+                        int n = Mathf.Min(64, Mathf.CeilToInt(len / probe));
+                        for (int s = 1; s <= n; s++)
+                            if (set.Distance(safe[k] + dv * ((float)s / n)) < thick * 0.5f && !Pole(set, safe[k] + dv * ((float)s / n), down, thick))
+                            {
+                                x[k] = safe[k] + dv * ((float)(s - 1) / n);
+                                prev[k] = Vector3.Lerp(prev[k], x[k], 0.7f);
+                                break;
+                            }
+                    }
+                    float dist = set.Sample(x[k], out var grad);
+                    bool pole = dist < thick && Pole(set, x[k], down, thick);
+                    if (dist < thick && !pole)
+                    {
+                        var to = safe[k] - x[k];
+                        if (to.sqrMagnitude > 1e-8f && Vector3.Dot(grad, to) < 0f) grad = -grad;   // to the side it came from
                         x[k] += grad * (thick - dist);
                         prev[k] = Vector3.Lerp(prev[k], x[k], 0.7f);   // friction
                     }
                     float depth = Vector3.Dot(x[k], down);
                     if (depth > floor) { x[k] -= down * (depth - floor); prev[k] = Vector3.Lerp(prev[k], x[k], 0.8f); }
+                    if (pole || set.Distance(x[k]) >= thick * 0.7f) safe[k] = x[k];
                 }
             }
 
         }
 
+        // how far from a pole's middle it must be open: half the width, the field's blur and the contact
+        [System.ThreadStatic] static float poleR;
+        static float PoleRadius(SMDecorSet set) => poleR;
+
+        /// <summary>A thin upright thing (antenna, rod, pole, up to the cloth's poleWidth across): the sheet does not rest on it (it would
+        /// hang in a tall cone); the pole goes through instead. Its middle is found under the point (touching its top) or
+        /// behind it (touching its side); from there it must be open on all four sides, there and 12 cm lower. Walls,
+        /// plates and bars are long one way, so they still hold the sheet. Same as Pole() in SMDecorCloth.compute.</summary>
+        public static bool Pole(SMDecorSet set, Vector3 p, Vector3 down, float thick)
+        {
+            float r = PoleRadius(set);
+            if (r <= 0f) return false;
+            float d = set.Sample(p, out var g);
+            var gh = g - down * Vector3.Dot(g, down);
+            Vector3 c;
+            if (gh.magnitude < 0.5f) c = p + down * (d + thick);
+            else
+            {
+                var n = gh.normalized;
+                float w = -1f;
+                for (int s = 1; s <= 12; s++)
+                {
+                    float a = d + 2f * r * s / 12f;
+                    if (set.Distance(p - n * a) > thick) { w = a - d; break; }
+                }
+                if (w < 0f) return false;
+                c = p - n * (d + w * 0.5f);
+            }
+            var h1 = Vector3.Cross(down, Mathf.Abs(down.x) < 0.9f ? Vector3.right : Vector3.forward).normalized;
+            var h2 = Vector3.Cross(down, h1);
+            for (int k = 0; k < 2; k++)
+            {
+                var q = c + down * (k == 0 ? 0f : 0.12f);
+                if (set.Distance(q + h1 * r) < thick || set.Distance(q - h1 * r) < thick ||
+                    set.Distance(q + h2 * r) < thick || set.Distance(q - h2 * r) < thick) return false;
+            }
+            return true;
+        }
+
         /// <summary>The same on the GPU (SMDecorCloth.compute): Jacobi constraint passes, many more of them.</summary>
-        static void GpuSettle(ComputeShader cs, SMDecorSet set, Vector3[] x, bool[] pin, bool[] used, bool[] alive, int nu, int nv,
+        static void GpuSettle(ComputeShader cs, SMDecorSet set, Vector3[] x, Vector3[] safe, bool[] pin, bool[] used, bool[] alive, int nu, int nv,
                               float du, float dv, float bend, float thick, Vector3 down, float floor)
         {
             int N = x.Length;
@@ -284,16 +362,16 @@ namespace SMCAD.Details.Decor
             for (int k = 0; k < N; k++) { pos[k] = x[k]; flags[k] = (pin[k] ? 1u : 0u) | (used[k] ? 2u : 0u); }
             var aliveU = new uint[alive.Length];
             for (int q = 0; q < alive.Length; q++) aliveU[q] = alive[q] ? 1u : 0u;
-            var bPos = new ComputeBuffer(N, 16); var bPrev = new ComputeBuffer(N, 16); var bTmp = new ComputeBuffer(N, 16);
+            var bPos = new ComputeBuffer(N, 16); var bPrev = new ComputeBuffer(N, 16); var bTmp = new ComputeBuffer(N, 16); var bSafe = new ComputeBuffer(N, 16);
             var bFlags = new ComputeBuffer(N, 4); var bAlive = new ComputeBuffer(Mathf.Max(1, aliveU.Length), 4);
             try
             {
-                bPos.SetData(pos); bPrev.SetData(pos); bTmp.SetData(pos);
+                bPos.SetData(pos); bPrev.SetData(pos); bTmp.SetData(pos); bSafe.SetData(pos);
                 bFlags.SetData(flags); bAlive.SetData(aliveU);
                 float dt = 1f / 60f;
                 cs.SetInts("_N", nu, nv);
                 cs.SetFloat("_Du", du); cs.SetFloat("_Dv", dv); cs.SetFloat("_Diag", Mathf.Sqrt(du * du + dv * dv)); cs.SetFloat("_Bend", bend);
-                cs.SetFloat("_Thick", thick); cs.SetFloat("_Damp", 0.96f); cs.SetFloat("_Floor", floor); cs.SetFloat("_Omega", 0.9f);
+                cs.SetFloat("_Thick", thick); cs.SetFloat("_PoleR", PoleRadius(set)); cs.SetFloat("_Damp", 0.96f); cs.SetFloat("_Floor", floor); cs.SetFloat("_Omega", 0.9f);
                 cs.SetVector("_Down", down); cs.SetVector("_Gstep", down * (9.81f * dt * dt));
                 cs.SetVector("_GridMin", set.gridMin); cs.SetVector("_GridSize", set.GridSize);
                 cs.SetFloat("_Voxel", set.voxel); cs.SetFloat("_MaxDist", set.maxDistance);
@@ -305,7 +383,7 @@ namespace SMCAD.Details.Decor
                     cs.SetBuffer(k, "_Alive", bAlive);
                 }
                 cs.SetBuffer(kI, "_Pos", bPos); cs.SetBuffer(kI, "_Prev", bPrev);
-                cs.SetBuffer(kC, "_Pos", bPos); cs.SetBuffer(kC, "_Prev", bPrev);
+                cs.SetBuffer(kC, "_Pos", bPos); cs.SetBuffer(kC, "_Prev", bPrev); cs.SetBuffer(kC, "_Safe", bSafe);
                 int g1 = (N + 63) / 64, gx = (nu + 7) / 8, gy = (nv + 7) / 8;
                 for (int it = 0; it < 300; it++)
                 {
@@ -321,8 +399,10 @@ namespace SMCAD.Details.Decor
                 }
                 bPos.GetData(pos);
                 for (int k = 0; k < N; k++) x[k] = pos[k];
+                bSafe.GetData(pos);
+                for (int k = 0; k < N; k++) safe[k] = pos[k];
             }
-            finally { bPos.Release(); bPrev.Release(); bTmp.Release(); bFlags.Release(); bAlive.Release(); }
+            finally { bPos.Release(); bPrev.Release(); bTmp.Release(); bSafe.Release(); bFlags.Release(); bAlive.Release(); }
         }
 
         /// <summary>Leaf strips on the net: small double-sided cards with a slight tilt, a little off the sheet.</summary>

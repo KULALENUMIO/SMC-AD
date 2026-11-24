@@ -20,8 +20,95 @@ namespace SMCAD.Details.Editor.Decor
         public float Length => Vector3.Distance(a, b);
     }
 
+    /// <summary>Every feature edge of the vehicle (convex and concave folds, open rims), for drawing a chain along
+    /// any edge: welded points (root-local) and the edges between them.</summary>
+    public class SMDecorEdgeGraph
+    {
+        public Vector3[] pos;
+        public int[] ea, eb;
+        public Vector3[] outward;     // away from the body
+        public Transform[] part;
+        public Dictionary<int, List<int>> byVertex = new Dictionary<int, List<int>>();
+        /// <summary>Bridges where separate blocks meet: points a hair apart, and a point lying on another block's edge
+        /// (T-junction) linked to that edge's ends. Without them the path would stop at every block.</summary>
+        public Dictionary<int, List<int>> links = new Dictionary<int, List<int>>();
+        public int Count => ea.Length;
+        public int Other(int e, int v) => ea[e] == v ? eb[e] : ea[e];
+
+        void Link(int a, int b)
+        {
+            if (a == b) return;
+            if (!links.TryGetValue(a, out var l)) links[a] = l = new List<int>();
+            if (!l.Contains(b)) l.Add(b);
+            if (!links.TryGetValue(b, out l)) links[b] = l = new List<int>();
+            if (!l.Contains(a)) l.Add(a);
+        }
+
+        /// <summary>Adds the bridges (gap = how far apart blocks may be, metres).</summary>
+        public int BuildLinks(float gap = 0.012f)
+        {
+            links.Clear();
+            float cell = 0.05f;
+            Vector3Int C(Vector3 p) => new Vector3Int(Mathf.FloorToInt(p.x / cell), Mathf.FloorToInt(p.y / cell), Mathf.FloorToInt(p.z / cell));
+            var pts = new Dictionary<Vector3Int, List<int>>();
+            for (int v = 0; v < pos.Length; v++)
+            {
+                var c = C(pos[v]);
+                if (!pts.TryGetValue(c, out var l)) pts[c] = l = new List<int>();
+                l.Add(v);
+            }
+            var segs = new Dictionary<Vector3Int, List<int>>();
+            for (int e = 0; e < Count; e++)
+            {
+                Vector3 a = pos[ea[e]], b = pos[eb[e]];
+                int steps = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(a, b) / (cell * 0.5f)));
+                Vector3Int last = new Vector3Int(int.MinValue, 0, 0);
+                for (int i = 0; i <= steps; i++)
+                {
+                    var c = C(Vector3.Lerp(a, b, i / (float)steps));
+                    if (c == last) continue;
+                    last = c;
+                    if (!segs.TryGetValue(c, out var l)) segs[c] = l = new List<int>();
+                    if (l.Count == 0 || l[l.Count - 1] != e) l.Add(e);
+                }
+            }
+            float g2 = gap * gap;
+            for (int v = 0; v < pos.Length; v++)
+            {
+                var p = pos[v];
+                var c = C(p);
+                for (int x = -1; x <= 1; x++)
+                    for (int y = -1; y <= 1; y++)
+                        for (int z = -1; z <= 1; z++)
+                        {
+                            var k = new Vector3Int(c.x + x, c.y + y, c.z + z);
+                            if (pts.TryGetValue(k, out var pl))
+                                foreach (int w in pl)
+                                    if (w > v && (pos[w] - p).sqrMagnitude < g2) Link(v, w);
+                            if (segs.TryGetValue(k, out var sl))
+                                foreach (int e in sl)
+                                {
+                                    int a = ea[e], b = eb[e];
+                                    if (a == v || b == v) continue;
+                                    Vector3 pa = pos[a], ab = pos[b] - pa;
+                                    float L2 = ab.sqrMagnitude;
+                                    if (L2 < 1e-10f) continue;
+                                    float t = Vector3.Dot(p - pa, ab) / L2;
+                                    if (t <= 0f || t >= 1f) continue;
+                                    if ((pa + ab * t - p).sqrMagnitude < g2) { Link(v, a); Link(v, b); }
+                                }
+                        }
+            }
+            int n = 0;
+            foreach (var l in links.Values) n += l.Count;
+            return n / 2;
+        }
+    }
+
     public static class SMDecorRidges
     {
+        public const float FeatureAngle = 15f;  // degrees: edges folding more than this can carry a chain
+        public static SMDecorEdgeGraph LastGraph;
         public const float MinAngle = 25f;      // degrees between the faces
         public const float MinLength = 0.2f;    // metres
         public static string LastInfo = "";
@@ -102,7 +189,9 @@ namespace SMCAD.Details.Editor.Decor
 
             // 4 ridge edges
             var ridgeEdges = new List<(int a, int b, Vector3 outward, Transform part, bool rim)>();
+            var feat = new List<(int a, int b, Vector3 outward, Transform part)>();
             float cosMin = Mathf.Cos(MinAngle * Mathf.Deg2Rad);
+            float cosFeat = Mathf.Cos(FeatureAngle * Mathf.Deg2Rad);
             foreach (var kv in edges)
             {
                 int ia = (int)(kv.Key >> 32), ib = (int)(kv.Key & 0xFFFFFFFF);
@@ -111,6 +200,8 @@ namespace SMCAD.Details.Editor.Decor
                 if (fl.Count == 2)
                 {
                     var nA = OutN(fl[0], out bool plA); var nB = OutN(fl[1], out bool plB);
+                    if (!plA && !plB && Vector3.Dot(nA, nB) < cosFeat && (nA + nB).sqrMagnitude > 1e-6f)
+                        feat.Add((ia, ib, (nA + nB).normalized, facePart[fl[0]]));   // convex or concave fold
                     if (plA || plB) continue;
                     if (Vector3.Dot(nA, nB) > cosMin) continue;
                     if (Vector3.Dot(nA, faceC[fl[1]] - mid) > -1e-4f || Vector3.Dot(nB, faceC[fl[0]] - mid) > -1e-4f) continue;   // concave
@@ -122,9 +213,10 @@ namespace SMCAD.Details.Editor.Decor
                 {
                     // rim of a thin plate: open on both sides of the face and beyond the edge
                     var n = OutN(fl[0], out bool plate);
-                    if (!plate) continue;
                     var t = Vector3.Cross(dir, n).normalized;
                     if (Vector3.Dot(t, faceC[fl[0]] - mid) > 0f) t = -t;
+                    if (set.Distance(mid + t * h) > 0.3f * h) feat.Add((ia, ib, (t + n * 0.5f).normalized, facePart[fl[0]]));   // open rim
+                    if (!plate) continue;
                     if (set.Distance(mid + t * h) < 0.6f * h) continue;
                     ridgeEdges.Add((ia, ib, t, facePart[fl[0]], true));
                 }
@@ -211,7 +303,30 @@ namespace SMCAD.Details.Editor.Decor
                 if (!buckets.TryGetValue(key, out var list2)) buckets[key] = list2 = new List<SMDecorRidge>();
                 list2.Add(l);
             }
-            LastInfo = $"面 {faces:N0}、稜線の辺 {ridgeEdges.Count:N0} → 線 {keep.Count}（{sw.ElapsedMilliseconds} ms: 溶接 {tWeld}, 辺 {tEdges - tWeld}, 判定 {tRidge - tEdges}, 結合 {tMerge - tRidge}, 重複 {sw.ElapsedMilliseconds - tMerge}）";
+            // the edge graph (only the points it uses)
+            var remap = new Dictionary<int, int>();
+            var gpos = new List<Vector3>();
+            int Map(int v) { if (!remap.TryGetValue(v, out int m)) { m = gpos.Count; remap[v] = m; gpos.Add(pos[v]); } return m; }
+            var graph = new SMDecorEdgeGraph
+            {
+                ea = new int[feat.Count], eb = new int[feat.Count], outward = new Vector3[feat.Count], part = new Transform[feat.Count],
+            };
+            for (int e = 0; e < feat.Count; e++)
+            {
+                graph.ea[e] = Map(feat[e].a); graph.eb[e] = Map(feat[e].b);
+                graph.outward[e] = feat[e].outward; graph.part[e] = feat[e].part;
+                foreach (int v in new[] { graph.ea[e], graph.eb[e] })
+                {
+                    if (!graph.byVertex.TryGetValue(v, out var l)) graph.byVertex[v] = l = new List<int>();
+                    l.Add(e);
+                }
+            }
+            graph.pos = gpos.ToArray();
+            long tLinks = sw.ElapsedMilliseconds;
+            int bridges = graph.BuildLinks();
+            tLinks = sw.ElapsedMilliseconds - tLinks;
+            LastGraph = graph;
+            LastInfo = $"辺 {feat.Count:N0}（継ぎ {bridges:N0}, {tLinks} ms）、面 {faces:N0}、稜線の辺 {ridgeEdges.Count:N0} → 線 {keep.Count}（{sw.ElapsedMilliseconds} ms: 溶接 {tWeld}, 辺 {tEdges - tWeld}, 判定 {tRidge - tEdges}, 結合 {tMerge - tRidge}, 重複 {sw.ElapsedMilliseconds - tMerge}）";
             return keep;
         }
 

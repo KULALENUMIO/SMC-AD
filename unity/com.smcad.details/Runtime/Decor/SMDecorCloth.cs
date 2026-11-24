@@ -23,6 +23,7 @@ namespace SMCAD.Details.Decor
         [Tooltip("固さ（曲がりにくさ）")] [Range(0f, 1f)] public float stiffness = 0.5f;
         [Tooltip("厚み (m)。機体からこれだけ浮く")] [Range(0.002f, 0.05f)] public float thickness = 0.012f;
         [Tooltip("格子の細かさ (m)。小さいほど細かく垂れる（重くなる）")] [Range(0.02f, 0.12f)] public float cell = 0.05f;
+        [Tooltip("これより細い立った棒（アンテナなど）は布を突き抜ける (m)。0 にすると棒にも掛かる（とがったテントになる）")] [Range(0f, 0.5f)] public float poleWidth = 0.25f;
         [Tooltip("色")] public SMDecorPalette palette = SMDecorPalette.Forest;
         [Tooltip("カモネット: 葉の飾りの量")] [Range(0f, 1f)] public float garnish = 0.7f;
         [Tooltip("カモネット: 網目の大きさ (m)")] [Range(0.04f, 0.2f)] public float meshSize = 0.1f;
@@ -44,7 +45,7 @@ namespace SMCAD.Details.Decor
             var sb = new System.Text.StringBuilder(base.Params());
             sb.Append('|').Append(type).Append('|').Append(pinCorners).Append('|').Append(extra).Append('|').Append(stiffness).Append('|').Append(thickness)
               .Append('|').Append(cell).Append('|').Append(palette).Append('|').Append(garnish).Append('|').Append(meshSize).Append('|').Append(fray).Append('|').Append(frayBorder)
-              .Append('|').Append(cutW).Append('x').Append(cutH);
+              .Append('|').Append(cutW).Append('x').Append(cutH).Append('|').Append(poleWidth);
             foreach (var p in corners) sb.Append('|').Append(p.x).Append(',').Append(p.y).Append(',').Append(p.z);
             uint h = 2166136261;
             if (cut != null) foreach (var b in cut) { h ^= b; h *= 16777619; }

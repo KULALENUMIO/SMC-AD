@@ -68,20 +68,31 @@ namespace SMCAD.Details.Decor
             if (tp.Count < 2) { mesh.Clear(); return st; }
 
             // 2 hang points
+            //   evenly by length along each run between sharp corners (a curved edge made of many short facets
+            //   gets hang points every "spacing", not one per facet); sharp corners (> 30 degrees) always get one
             var H = new List<Vector3>(); var HO = new List<Vector3>(); var HE = new List<Vector3>();
-            for (int i = 1; i < tp.Count; i++)
+            var cum = new float[tp.Count];
+            for (int i = 1; i < tp.Count; i++) cum[i] = cum[i - 1] + Vector3.Distance(tp[i - 1], tp[i]);
+            var breaks = new List<int> { 0 };
+            for (int i = 1; i + 1 < tp.Count; i++)
+                if (Vector3.Angle(tp[i] - tp[i - 1], tp[i + 1] - tp[i]) > 30f) breaks.Add(i);
+            breaks.Add(tp.Count - 1);
+            void HangAt(float s)
             {
-                float seg = Vector3.Distance(tp[i - 1], tp[i]);
-                int n = Mathf.Max(1, Mathf.RoundToInt(seg / Mathf.Max(0.03f, c.spacing)));
-                var e = (tp[i] - tp[i - 1]).normalized;
-                for (int j = 0; j < n; j++)
-                {
-                    float t = (float)j / n;
-                    var o = j == 0 ? to[i - 1] : Vector3.Slerp(to[i - 1], to[i], t);
-                    H.Add(Vector3.Lerp(tp[i - 1], tp[i], t) + o * half); HO.Add(o); HE.Add(e);
-                }
-                if (i == tp.Count - 1) { H.Add(tp[i] + to[i] * half); HO.Add(to[i]); HE.Add(e); }
+                int k = 1;
+                while (k < tp.Count - 1 && cum[k] < s) k++;
+                float seg = cum[k] - cum[k - 1];
+                float t = seg > 1e-6f ? Mathf.Clamp01((s - cum[k - 1]) / seg) : 0f;
+                var o = Vector3.Slerp(to[k - 1], to[k], t).normalized;
+                H.Add(Vector3.Lerp(tp[k - 1], tp[k], t) + o * half); HO.Add(o); HE.Add((tp[k] - tp[k - 1]).normalized);
             }
+            for (int r = 0; r + 1 < breaks.Count; r++)
+            {
+                float s0 = cum[breaks[r]], s1 = cum[breaks[r + 1]];
+                int n = Mathf.Max(1, Mathf.RoundToInt((s1 - s0) / Mathf.Max(0.03f, c.spacing)));
+                for (int j = 0; j < n; j++) HangAt(s0 + (s1 - s0) * j / n);
+            }
+            HangAt(cum[tp.Count - 1]);
 
             // 3 particles: lace = catenaries between the hang points; curtain = a strand hanging from every hang point
             var x = new List<Vector3>(); var pin = new List<bool>(); var prevI = new List<int>(); var nextI = new List<int>();

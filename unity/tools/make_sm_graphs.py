@@ -18,6 +18,16 @@ DETAILS_GUID = '7e5d9a3c1b4f4a82b6d0e2f4a8c61733'   # SMDetailsGraph.hlsl.meta (
 GUI = 'SMCAD.Editor.SMLitGUI'
 TANKRIG_SHADERS = os.path.join(HERE, '..', '..', '..', 'Unity Tank Rigging Addon', 'com.tankrig.unity', 'Runtime', 'Shaders')
 PARTICLE_GUID = '8f6e0b4d2c5a4b93c7e1f3a5b9d72844'   # TankRigParticle.hlsl.meta (com.tankrig.unity)
+RING_GUID = '3b8e5c1f7a2d4c69b0e4f6a8c2d1e957'   # TankRigRingInterior.hlsl.meta (com.tankrig.unity)
+RING_PROPS = r'''
+_InnerDiameter ("ターレットリングの内径（m）", Float) = 2.25
+_RingWidth ("ターレットリングの幅（m）", Float) = 0.16
+[HideInInspector] _Side ("面（0 = 車体側、1 = 砲塔側）", Float) = 0
+_Brightness ("明るさ", Range(0, 4)) = 1
+_PaintColor ("内装の塗装色", Color) = (0.74, 0.73, 0.68, 1)
+_EquipColor ("機器の色", Color) = (0.36, 0.38, 0.29, 1)
+_FloorColor ("床の色", Color) = (0.45, 0.46, 0.43, 1)
+'''
 PARTICLE_PROPS = r'''
 _BaseColorMap ("Texture", 2D) = "white" {}
 _BaseColor ("Tint", Color) = (1, 1, 1, 1)
@@ -468,6 +478,59 @@ def build_particle():
     return '\n\n'.join(json.dumps(o, indent=4, ensure_ascii=False) for o in docs) + '\n'
 
 
+def build_ring():
+    """TankRig/Turret Ring Interior: HDRP Unlit, opaque with alpha clip. A fake interior (procedural, its own fixed
+    lighting) ray marched in TankRigRingInterior.hlsl from the object-space surface point along the view ray."""
+    g = Graph('TankRig Ring Interior')
+    prop_ids = [g.prop(p) for p in parse(RING_PROPS)]
+    n_pos_os = g.input_node('pos_os', 'PositionNode', 'Position', V3, (-900.0, 0.0), sgver=1, m_Space=0, m_PositionSource=0)
+    n_pos_ws = g.input_node('pos_ws', 'PositionNode', 'Position', V3, (-900.0, 60.0), sgver=1, m_Space=2, m_PositionSource=0)
+    fn = g.custom_function('ring', 'TankRigRingInterior', [('PositionOS', V3), ('PositionWS', V3)], [('Color', V3), ('Alpha', V1)],
+                           (-500.0, 0.0), RING_GUID)
+    vb = [g.block('VertexDescription.Position', 'PositionMaterialSlot', 'Position', 'Position', space=0, stage=1),
+          g.block('VertexDescription.Normal', 'NormalMaterialSlot', 'Normal', 'Normal', space=0, stage=1),
+          g.block('VertexDescription.Tangent', 'TangentMaterialSlot', 'Tangent', 'Tangent', space=0, stage=1)]
+    fb = [g.block('SurfaceDescription.BaseColor', 'ColorRGBMaterialSlot', 'BaseColor', 'Base Color', value=[0.0, 0.0, 0.0]),
+          g.block('SurfaceDescription.Alpha', V1, 'Alpha', 'Alpha', value=1.0),
+          g.block('SurfaceDescription.AlphaClipThreshold', V1, 'AlphaClipThreshold', 'Alpha Clip Threshold', value=0.5)]
+    edges = [edge(n_pos_os, 0, fn, 0), edge(n_pos_ws, 0, fn, 1), edge(fn, 2, fb[0], 0), edge(fn, 3, fb[1], 0)]
+    unlit = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.Rendering.HighDefinition.ShaderGraph.HDUnlitData', 'm_ObjectId': g.oid('unlitdata'),
+                   'm_EnableShadowMatte': False, 'm_DistortionOnly': False})
+    system = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.Rendering.HighDefinition.ShaderGraph.SystemData', 'm_ObjectId': g.oid('system'),
+                    'm_MaterialNeedsUpdateHash': 0, 'm_SurfaceType': 0, 'm_RenderingPass': 1, 'm_BlendMode': 0, 'm_ZTest': 4,
+                    'm_ZWrite': True, 'm_TransparentCullMode': 2, 'm_OpaqueCullMode': 2, 'm_SortPriority': 0, 'm_AlphaTest': True,
+                    'm_ExcludeFromTUAndAA': False, 'm_TransparentDepthPrepass': False, 'm_TransparentDepthPostpass': False,
+                    'm_SupportLodCrossFade': False, 'm_DoubleSidedMode': 0, 'm_DOTSInstancing': False, 'm_CustomVelocity': False,
+                    'm_Tessellation': False, 'm_TessellationMode': 0, 'm_TessellationFactorMinDistance': 20.0,
+                    'm_TessellationFactorMaxDistance': 50.0, 'm_TessellationFactorTriangleSize': 100.0, 'm_TessellationShapeFactor': 0.75,
+                    'm_TessellationBackFaceCullEpsilon': -0.25, 'm_TessellationMaxDisplacement': 0.01,
+                    'm_DebugSymbols': False, 'm_Version': 2, 'inspectorFoldoutMask': 0})
+    builtin = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.Rendering.HighDefinition.ShaderGraph.BuiltinData', 'm_ObjectId': g.oid('builtin'),
+                     'm_Distortion': False, 'm_DistortionMode': 0, 'm_DistortionDepthTest': True, 'm_AddPrecomputedVelocity': False,
+                     'm_TransparentWritesMotionVec': False, 'm_DepthOffset': False, 'm_ConservativeDepthOffset': False,
+                     'm_TransparencyFog': True, 'm_AlphaTestShadow': False, 'm_BackThenFrontRendering': False,
+                     'm_TransparentDepthPrepass': False, 'm_TransparentDepthPostpass': False,
+                     'm_TransparentPerPixelSorting': False, 'm_SupportLodCrossFade': False})
+    sub = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.Rendering.HighDefinition.ShaderGraph.HDUnlitSubTarget', 'm_ObjectId': g.oid('sub')})
+    target = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.Rendering.HighDefinition.ShaderGraph.HDTarget', 'm_ObjectId': g.oid('target'),
+                    'm_ActiveSubTarget': {'m_Id': sub}, 'm_Datas': [{'m_Id': i} for i in (unlit, system, builtin)],
+                    'm_CustomEditorGUI': '', 'm_SupportVFX': False, 'm_SupportLineRendering': False})
+    cat = g.add({'m_SGVersion': 0, 'm_Type': 'UnityEditor.ShaderGraph.CategoryData', 'm_ObjectId': g.oid('category'),
+                 'm_Name': '', 'm_ChildObjectList': [{'m_Id': i} for i in prop_ids]})
+    node_ids = [o['m_ObjectId'] for o in g.objs if o['m_Type'].endswith('Node')]
+    root = {'m_SGVersion': 3, 'm_Type': 'UnityEditor.ShaderGraph.GraphData', 'm_ObjectId': g.oid('graph'),
+            'm_Properties': [{'m_Id': i} for i in prop_ids], 'm_Keywords': [], 'm_Dropdowns': [],
+            'm_CategoryData': [{'m_Id': cat}], 'm_Nodes': [{'m_Id': i} for i in node_ids], 'm_GroupDatas': [], 'm_StickyNoteDatas': [],
+            'm_Edges': edges,
+            'm_VertexContext': {'m_Position': {'x': 0.0, 'y': 0.0}, 'm_Blocks': [{'m_Id': i} for i in vb]},
+            'm_FragmentContext': {'m_Position': {'x': 0.0, 'y': 200.0}, 'm_Blocks': [{'m_Id': i} for i in fb]},
+            'm_PreviewData': {'serializedMesh': {'m_SerializedMesh': '{"mesh":{"instanceID":0}}', 'm_Guid': ''}, 'preventRotation': False},
+            'm_Path': 'TankRig', 'm_GraphPrecision': 1, 'm_PreviewMode': 2, 'm_OutputNode': {'m_Id': ''},
+            'm_SubDatas': [], 'm_ActiveTargets': [{'m_Id': target}]}
+    docs = [root] + sorted(g.objs, key=lambda o: o['m_ObjectId'])
+    return '\n\n'.join(json.dumps(o, indent=4, ensure_ascii=False) for o in docs) + '\n'
+
+
 def write_meta(path, guid, importer):
     if not os.path.exists(path + '.meta'):
         with open(path + '.meta', 'w', encoding='utf-8', newline='\n') as f:
@@ -497,4 +560,10 @@ if __name__ == '__main__':
             f.write(build_particle())
         write_meta(path, 'd0a4f7b5e1c26a6dafb9c4e3a5d7f9b4', graph_meta)
         write_meta(os.path.join(TANKRIG_SHADERS, 'TankRigParticle.hlsl'), PARTICLE_GUID, include_meta)
+        print('wrote', path)
+        path = os.path.join(TANKRIG_SHADERS, 'Turret Ring Interior.shadergraph')
+        with open(path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(build_ring())
+        write_meta(path, 'e1b5a8c6f2d37b7ebfc0d5f4b6e8fac5', graph_meta)
+        write_meta(os.path.join(TANKRIG_SHADERS, 'TankRigRingInterior.hlsl'), RING_GUID, include_meta)
         print('wrote', path)

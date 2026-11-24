@@ -31,9 +31,11 @@ namespace SMCAD.Details.Editor.Decor
             hit.distance = float.PositiveInfinity;
             var renderers = SMDetailsBuilder.SMRenderers(root);
             foreach (var r in SMDetailsBuilder.AttachedRenderers(root)) if (!renderers.Contains(r)) renderers.Add(r);
+            var hidden = SMWorkView.RendererTest();   // left out of the work view being clicked in
             foreach (var r in renderers)
             {
                 if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (hidden != null && hidden(r)) continue;
                 if (!r.bounds.IntersectRay(ray, out float near) || near > hit.distance) continue;
                 var mesh = r.GetComponent<MeshFilter>().sharedMesh;
                 if (mesh == null) continue;

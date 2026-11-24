@@ -52,7 +52,7 @@ namespace SMCAD.Details.Editor.Decor
             if (fPlace)
             {
                 EditorGUILayout.HelpBox("シーンビューの道具で付けます。\n" +
-                                        "チェーン: 稜線をクリック（Shift+クリックでつなぐ）\n" +
+                                        "チェーン: 稜線をクリック（Shift+クリックでつなぐ）、辺に沿う、自由\n" +
                                         "布・ネット: 表面を 4 回クリック\n" +
                                         "切り抜き: 布の上をなぞる / 多角形で囲んで Enter", MessageType.None);
                 using (new EditorGUI.DisabledScope(!set.HasField))
@@ -61,6 +61,8 @@ namespace SMCAD.Details.Editor.Decor
                     for (int m = 0; m < SMDecorTool.Modes.Length; m++)
                         if (GUILayout.Button(SMDecorTool.Modes[m], GUILayout.Height(26))) OpenTool(set, m);
                 }
+                if (GUILayout.Button(new GUIContent("作業ビューを開く", "車両だけを映す別のウィンドウ。明るく表示し、砲塔などを隠して下に付けたり、正面・側面から見たりできる。道具はそのまま使える")))
+                    SMWorkView.Open(set.transform);
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 

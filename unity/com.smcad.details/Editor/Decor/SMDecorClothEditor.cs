@@ -43,6 +43,7 @@ namespace SMCAD.Details.Editor.Decor
                 garnish = EditorGUILayout.Slider(new GUIContent("葉の量"), cloth.garnish, 0f, 1f);
                 meshSize = EditorGUILayout.Slider(new GUIContent("網目 (cm)"), cloth.meshSize * 100f, 4f, 20f) / 100f;
             }
+            float pole = EditorGUILayout.Slider(new GUIContent("棒を突き抜ける太さ (cm)", "これより細い立った棒（アンテナなど）は布を突き抜ける。0 にすると棒にも掛かる（とがったテントになる）"), cloth.poleWidth * 100f, 0f, 50f) / 100f;
             bool pin = EditorGUILayout.Toggle(new GUIContent("四隅を留める", "外すと、四隅は範囲を決めるだけで自由に垂れる"), cloth.pinCorners);
             float cell = compact ? cloth.cell : EditorGUILayout.Slider(new GUIContent("格子の細かさ (cm)", "小さいほど細かく垂れる（時間がかかる）"), cloth.cell * 100f, 2f, 12f) / 100f;
             EditorGUIUtility.labelWidth = wl;
@@ -50,7 +51,7 @@ namespace SMCAD.Details.Editor.Decor
             {
                 Undo.RecordObject(cloth, "布・ネットの設定");
                 cloth.type = type; cloth.palette = pal; cloth.extra = extra; cloth.stiffness = stiff; cloth.thickness = thick;
-                cloth.garnish = garnish; cloth.meshSize = meshSize; cloth.pinCorners = pin; cloth.cell = cell;
+                cloth.garnish = garnish; cloth.meshSize = meshSize; cloth.pinCorners = pin; cloth.cell = cell; cloth.poleWidth = pole;
                 EditorUtility.SetDirty(cloth);
                 pending.Add(cloth);
             }

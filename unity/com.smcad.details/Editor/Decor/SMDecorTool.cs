@@ -26,6 +26,13 @@ namespace SMCAD.Details.Editor.Decor
             "ブラシ: 布の上をなぞって切る（Shift で戻す）　多角形: 布の上を順にクリック → Enter で切る（Shift+Enter で戻す、Esc でやり直し）　Ctrl+クリック: 布を選ぶ",
         };
 
+        static readonly string[] ChainHints =
+        {
+            "稜線をクリック: チェーンを付ける　Shift+クリック: 編集中のチェーンの端につなぐ　Ctrl+クリック: 付けたチェーンを選ぶ",
+            "辺を順にクリック: 間は辺に沿ってつながる　Enter / ダブルクリック: 付ける　Backspace: 1 つ戻す　Esc: やり直し",
+            "表面を順にクリック: 点の間に鎖を張る　Enter / ダブルクリック: 付ける　Backspace: 1 つ戻す　Esc: やり直し",
+        };
+
         GUIContent icon;
         public override GUIContent toolbarIcon => icon ??= new GUIContent(EditorGUIUtility.IconContent("d_Cloth Icon").image, "SMC-AD 装備（チェーン・布）");
 
@@ -61,12 +68,17 @@ namespace SMCAD.Details.Editor.Decor
             {
                 var ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
                 hasHit = SMDecorPick.Raycast(root, ray, out hit);
-                hover = Mode == 0 && set.HasField ? NearestRidge(set, ray) : null;
+                hover = Mode == 0 && ChainPick == 0 && set.HasField ? NearestRidge(set, ray) : null;
+                hasSnap = Mode == 0 && ChainPick == 1 && set.HasField && SMDecorEdgePath.Nearest(Graph(set), root, ray, out snap);
                 view.Repaint();
             }
 
             if (CurrentCloth != null && CurrentCloth.set != set) CurrentCloth = null;
-            if (Mode == 0 && set.HasField) ChainMode(set, view, e);
+            SMDecorView.Apply();
+            if (SMDecorView.Edges && set.HasField && e.type == EventType.Repaint) DrawEdges(set);
+            if (Mode == 0 && set.HasField && ChainPick == 1) EdgeMode(set, view, e);
+            else if (Mode == 0 && set.HasField && ChainPick == 2) FreeMode(set, view, e);
+            else if (Mode == 0 && set.HasField) ChainMode(set, view, e);
             else if (Mode == 1 && set.HasField) ClothMode(set, view, e);
             else if (Mode == 2 && set.HasField) CutMode(set, view, e);
             else PointInfo(set, e);
@@ -298,6 +310,177 @@ namespace SMCAD.Details.Editor.Decor
             }
         }
 
+        public override void OnActivated() { SMDecorView.Apply(); }
+        public override void OnWillBeDeactivated() { SMDecorView.Restore(); }
+
+        // ------------------------------------------------------------------ edges (all feature edges, any fold or rim)
+
+        public static int ChainPick;           // 0 ridge lines, 1 along edges, 2 free points
+        public static readonly string[] ChainPicks = { "稜線", "辺に沿う", "自由" };
+        static SMDecorEdgeGraph graph;
+        static Texture3D graphOf;
+        bool hasSnap;
+        SMDecorEdgePath.Snap snap;
+        static readonly List<SMDecorEdgePath.Snap> anchors = new List<SMDecorEdgePath.Snap>();
+        static readonly List<int> anchorAt = new List<int>();            // index into pathPts where each anchor's run starts
+        static readonly List<(Vector3 p, Vector3 o)> pathPts = new List<(Vector3, Vector3)>();
+        static Transform pathPart;
+
+        public static SMDecorEdgeGraph Graph(SMDecorSet set)
+        {
+            if (graph == null || graphOf != set.field) { Ridges(set, true); graph = SMDecorRidges.LastGraph; graphOf = set.field; }
+            return graph;
+        }
+
+        static Vector3[] edgeSegs;
+        static SMDecorEdgeGraph edgeSegsOf;
+        static void DrawEdges(SMDecorSet set)
+        {
+            var g = Graph(set);
+            if (g == null) return;
+            var root = set.transform;
+            if (edgeSegs == null || edgeSegsOf != g)
+            {
+                edgeSegs = new Vector3[g.Count * 2];
+                edgeSegsOf = g;
+            }
+            var hidden = SMWorkView.TransformTest();
+            var memo = hidden != null ? new Dictionary<Transform, bool>() : null;
+            int n = 0;
+            for (int e = 0; e < g.Count; e++)
+            {
+                if (hidden != null)
+                {
+                    var pt = g.part[e] != null ? g.part[e] : root;
+                    if (!memo.TryGetValue(pt, out bool hid)) memo[pt] = hid = hidden(pt);
+                    if (hid) continue;
+                }
+                edgeSegs[n++] = root.TransformPoint(g.pos[g.ea[e]]); edgeSegs[n++] = root.TransformPoint(g.pos[g.eb[e]]);
+            }
+            Handles.color = new Color(1f, 1f, 1f, 0.28f);
+            Handles.DrawLines(n == edgeSegs.Length ? edgeSegs : edgeSegs.Take(n).ToArray());
+        }
+
+        void DrawPath(SMDecorSet set)
+        {
+            var root = set.transform;
+            Handles.color = new Color(0.2f, 1f, 0.5f);
+            for (int i = 1; i < pathPts.Count; i++) Handles.DrawLine(root.TransformPoint(pathPts[i - 1].p), root.TransformPoint(pathPts[i].p), 4f);
+            foreach (var a in anchors) Handles.DrawWireDisc(root.TransformPoint(a.point), Camera.current != null ? -Camera.current.transform.forward : Vector3.up, HandleUtility.GetHandleSize(root.TransformPoint(a.point)) * 0.04f, 3f);
+        }
+
+        void FinishPath(SMDecorSet set)
+        {
+            if (pathPts.Count >= 2)
+            {
+                float len = 0f;
+                for (int i = 1; i < pathPts.Count; i++) len += Vector3.Distance(pathPts[i - 1].p, pathPts[i].p);
+                if (len > 0.05f) Current = SMDecorChains.CreateFromPath(set, pathPart, pathPts);
+            }
+            anchors.Clear(); anchorAt.Clear(); pathPts.Clear(); pathPart = null;
+        }
+
+        static void CancelPath() { anchors.Clear(); anchorAt.Clear(); pathPts.Clear(); pathPart = null; }
+
+        /// <summary>Along edges: click points on edges; the path follows the edges between them. Enter / double-click
+        /// = make the chain, Backspace = take back the last point, Esc = start again.</summary>
+        void EdgeMode(SMDecorSet set, SceneView view, Event e)
+        {
+            var root = set.transform;
+            var g = Graph(set);
+            if (e.type == EventType.Repaint)
+            {
+                DrawPath(set);
+                if (hasSnap)
+                {
+                    Handles.color = new Color(1f, 0.8f, 0.1f);
+                    Handles.DrawLine(root.TransformPoint(g.pos[g.ea[snap.edge]]), root.TransformPoint(g.pos[g.eb[snap.edge]]), 4f);
+                    var wp = root.TransformPoint(snap.point);
+                    Handles.DrawWireDisc(wp, Camera.current != null ? -Camera.current.transform.forward : Vector3.up, HandleUtility.GetHandleSize(wp) * 0.05f, 2f);
+                    if (anchors.Count > 0) Handles.DrawDottedLine(root.TransformPoint(anchors[anchors.Count - 1].point), wp, 4f);
+                }
+            }
+            if (Current != null && pathPts.Count == 0) CurrentHandles(Current);
+            if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+            {
+                if (e.control || e.command) { var c = NearestChain(set); if (c != null) Current = c; e.Use(); return; }
+                if (e.clickCount == 2 && pathPts.Count >= 2) { FinishPath(set); e.Use(); return; }
+                if (hasSnap)
+                {
+                    if (anchors.Count == 0)
+                    {
+                        pathPart = g.part[snap.edge];
+                        anchorAt.Add(0);
+                        pathPts.Add((snap.point, snap.outward));
+                    }
+                    else
+                    {
+                        var run = SMDecorEdgePath.Between(g, anchors[anchors.Count - 1], snap);
+                        if (run == null)
+                        {
+                            // a separate piece (not touching through any edge): span the gap straight
+                            Debug.Log("[SMC-DETAILS 装備] 前の点と辺でつながっていないので、まっすぐ渡しました");
+                            var last = anchors[anchors.Count - 1];
+                            run = new List<(Vector3 p, Vector3 o)> { (last.point, last.outward), (snap.point, snap.outward) };
+                        }
+                        anchorAt.Add(pathPts.Count);
+                        for (int i = 1; i < run.Count; i++) pathPts.Add(run[i]);
+                    }
+                    anchors.Add(snap);
+                    e.Use();
+                }
+            }
+            PathKeys(set, e);
+        }
+
+        /// <summary>Free: click points on the surface; the chain is hung between them.</summary>
+        void FreeMode(SMDecorSet set, SceneView view, Event e)
+        {
+            var root = set.transform;
+            if (e.type == EventType.Repaint)
+            {
+                DrawPath(set);
+                if (hasHit)
+                {
+                    Handles.color = new Color(1f, 0.8f, 0.1f);
+                    Handles.DrawWireDisc(hit.point, hit.normal, HandleUtility.GetHandleSize(hit.point) * 0.05f, 2f);
+                    if (pathPts.Count > 0) Handles.DrawDottedLine(root.TransformPoint(pathPts[pathPts.Count - 1].p), hit.point, 4f);
+                }
+            }
+            if (Current != null && pathPts.Count == 0) CurrentHandles(Current);
+            if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+            {
+                if (e.control || e.command) { var c = NearestChain(set); if (c != null) Current = c; e.Use(); return; }
+                if (e.clickCount == 2 && pathPts.Count >= 2) { FinishPath(set); e.Use(); return; }
+                if (hasHit)
+                {
+                    if (pathPts.Count == 0) pathPart = hit.part.transform;
+                    var n = root.InverseTransformDirection(hit.normal).normalized;
+                    anchorAt.Add(pathPts.Count);
+                    anchors.Add(new SMDecorEdgePath.Snap { edge = -1, point = root.InverseTransformPoint(hit.point), outward = n });
+                    pathPts.Add((root.InverseTransformPoint(hit.point), n));
+                    e.Use();
+                }
+            }
+            PathKeys(set, e);
+        }
+
+        void PathKeys(SMDecorSet set, Event e)
+        {
+            if (e.type != EventType.KeyDown) return;
+            if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && pathPts.Count >= 2) { FinishPath(set); e.Use(); }
+            else if (e.keyCode == KeyCode.Escape && pathPts.Count > 0) { CancelPath(); e.Use(); }
+            else if (e.keyCode == KeyCode.Backspace && anchors.Count > 0)
+            {
+                int from = anchorAt[anchorAt.Count - 1];
+                pathPts.RemoveRange(from == 0 ? 0 : from, pathPts.Count - (from == 0 ? 0 : from));
+                anchors.RemoveAt(anchors.Count - 1); anchorAt.RemoveAt(anchorAt.Count - 1);
+                if (anchors.Count == 0) CancelPath();
+                e.Use();
+            }
+            else if ((e.keyCode == KeyCode.Delete) && pathPts.Count == 0 && Current != null) { Remove(Current); e.Use(); }
+        }
+
         // ------------------------------------------------------------------ chains
 
         void ChainMode(SMDecorSet set, SceneView view, Event e)
@@ -306,10 +489,15 @@ namespace SMCAD.Details.Editor.Decor
             var list = Ridges(set);
             if (e.type == EventType.Repaint)
             {
-                var segs = new Vector3[list.Count * 2];
-                for (int i = 0; i < list.Count; i++) { segs[i * 2] = root.TransformPoint(list[i].a); segs[i * 2 + 1] = root.TransformPoint(list[i].b); }
+                var hidden = SMWorkView.TransformTest();
+                var segs = new List<Vector3>(list.Count * 2);
+                foreach (var rl in list)
+                {
+                    if (hidden != null && hidden(rl.part != null ? rl.part : root)) continue;
+                    segs.Add(root.TransformPoint(rl.a)); segs.Add(root.TransformPoint(rl.b));
+                }
                 Handles.color = new Color(0.3f, 0.85f, 1f, 0.35f);
-                Handles.DrawLines(segs);
+                Handles.DrawLines(segs.ToArray());
                 if (hover != null)
                 {
                     Handles.color = new Color(1f, 0.8f, 0.1f);
@@ -397,8 +585,10 @@ namespace SMCAD.Details.Editor.Decor
         {
             var root = set.transform;
             var cands = new List<(float px, SMDecorRidge r)>();
+            var hidden = SMWorkView.TransformTest();
             foreach (var r in Ridges(set))
             {
+                if (hidden != null && hidden(r.part != null ? r.part : root)) continue;
                 float px = HandleUtility.DistanceToLine(root.TransformPoint(r.a), root.TransformPoint(r.b));
                 if (px < 12f) cands.Add((px, r));
             }
@@ -466,12 +656,22 @@ namespace SMCAD.Details.Editor.Decor
         static void Panel(SMDecorSet set)
         {
             Handles.BeginGUI();
-            float h = 74 + (!set.HasField ? 40 : 0) + (Mode == 0 && Current != null ? 300 : 0)
+            float h = 74 + 22 + (Mode == 0 ? 22 : 0) + (!set.HasField ? 40 : 0) + (Mode == 0 && Current != null ? 300 : 0)
                       + (Mode == 1 ? 26 + (CurrentCloth != null ? 270 : 0) : 0)
                       + (Mode == 2 ? (CurrentCloth != null ? 180 : 22) : 0);
             GUILayout.BeginArea(new Rect(10, 10, 400, h), EditorStyles.helpBox);
             Mode = GUILayout.Toolbar(Mode, Modes);
-            GUILayout.Label(Hints[Mode], EditorStyles.wordWrappedMiniLabel);
+            if (Mode == 0) { int cp = GUILayout.Toolbar(ChainPick, ChainPicks, EditorStyles.miniButton); if (cp != ChainPick) { ChainPick = cp; CancelPath(); } }
+            GUILayout.Label(Mode == 0 ? ChainHints[ChainPick] : Hints[Mode], EditorStyles.wordWrappedMiniLabel);
+            using (new GUILayout.HorizontalScope())
+            {
+                SMDecorView.Bright = GUILayout.Toggle(SMDecorView.Bright, new GUIContent("明るく表示", "影をなくして、機体を一様に明るく見せる（シーンビューだけ）"), EditorStyles.miniButtonLeft);
+                using (new EditorGUI.DisabledScope(!SMDecorView.Bright))
+                    SMDecorView.Colour = GUILayout.Toggle(SMDecorView.Colour, new GUIContent("色を混ぜる", "明るく表示の時、材質の色も出す（暗い塗装だと見にくい）"), EditorStyles.miniButtonMid);
+                SMDecorView.Edges = GUILayout.Toggle(SMDecorView.Edges, new GUIContent("辺を表示", "機体の折れ目・縁を線で重ねる"), EditorStyles.miniButtonMid);
+                if (GUILayout.Button(new GUIContent("作業ビュー", "車両だけを映す別のウィンドウを開く（部位を隠したり、正面・側面から見たりできる）"), EditorStyles.miniButtonRight))
+                    SMWorkView.Open(set.transform);
+            }
             if (!set.HasField) EditorGUILayout.HelpBox("先に SMC-DETAILS ウィンドウの「装備」で距離場を作ってください", MessageType.Warning);
             else if (Mode == 0) GUILayout.Label("稜線: " + ridgeInfo, EditorStyles.miniLabel);
             if (Mode == 2 && set.HasField) CutPanel(set);
