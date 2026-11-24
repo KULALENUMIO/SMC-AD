@@ -105,7 +105,7 @@ namespace SMCAD.Details.Editor
         static IEnumerable<Component> TrackComponents(Transform t) =>
             t.GetComponents<Component>().Where(c => c != null && c.GetType().GetField("linkPrefab") != null);
 
-        static List<MeshRenderer> AttachedRenderers(Transform root)
+        public static List<MeshRenderer> AttachedRenderers(Transform root)
         {
             return AttachedRoots(root).SelectMany(a => a.GetComponentsInChildren<MeshRenderer>(true))
                 .Where(r => (r.gameObject.hideFlags & HideFlags.DontSave) == 0 && !r.transform.GetComponentsInParent<Transform>(true).Any(p => p.name.StartsWith("__"))

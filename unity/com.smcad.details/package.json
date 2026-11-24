@@ -1,8 +1,8 @@
 {
   "name": "com.smcad.details",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "SMC-DETAILS for Unity (仮)",
-  "description": "Wear, dirt and hand painting for SMC-AD blueprints, done in Unity: shape analysis on the GPU (no UV, no baking), live procedural weathering in SM Lit, 3D brush.",
+  "description": "Wear, dirt and hand painting for SMC-AD blueprints, done in Unity: shape analysis on the GPU (no UV, no baking), live procedural weathering in SM Lit, 3D brush. Decorations: chains, camouflage nets and cloth draped on the GPU, with cutting and run-time motion.",
   "unity": "6000.3",
   "dependencies": {
     "com.smcad.unity": "0.4.0",

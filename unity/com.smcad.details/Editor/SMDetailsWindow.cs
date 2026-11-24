@@ -19,6 +19,8 @@ namespace SMCAD.Details.Editor
         static readonly string[] Modes = { "足す", "消す", "元に戻す" };
 
         Vector2 scroll;
+        int tab;
+        static readonly string[] Tabs = { "汚し", "装備（チェーン・布）" };
         float voxelCm = 3f;
         int directions = 96;
         bool fBase = true, fGen = true, fLook, fFine, fPaint, fDecal, fSave;
@@ -48,6 +50,14 @@ namespace SMCAD.Details.Editor
                 return;
             }
             EditorGUILayout.LabelField(root.name, EditorStyles.boldLabel);
+            tab = GUILayout.Toolbar(tab, Tabs);
+            EditorGUILayout.Space(4);
+            if (tab == 1)
+            {
+                Decor.SMDecorGUI.Draw(root);
+                EditorGUILayout.EndScrollView();
+                return;
+            }
             var d = root.GetComponent<SMDetails>();
             if (d == null || !d.IsReady)
             {

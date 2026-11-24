@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: MIT
+// SMC-DETAILS decorations: unsigned distance field of the vehicle.
+//   1 SeedDist / SeedPoint: every triangle writes the exact distance (and closest point) into the voxels of a thin
+//     band around it (InterlockedMin on the distance bits, then the winner writes its point)
+//   2 Jump: jump flooding of the closest points (steps N/2 ... 1), ping-pong
+//   3 Resolve: distance from each voxel centre to its closest point, clamped
+#pragma kernel Clear
+#pragma kernel SeedDist
+#pragma kernel SeedPoint
+#pragma kernel Jump
+#pragma kernel Resolve
+
+StructuredBuffer<float3> _Verts;
+StructuredBuffer<int> _Tris;
+RWStructuredBuffer<uint> _Dist;
+RWStructuredBuffer<float4> _Pnt;      // xyz closest point, w > 0 valid
+StructuredBuffer<float4> _PntIn;
+RWStructuredBuffer<float4> _PntOut;
+RWStructuredBuffer<float> _Out;
+
+int3 _Dims;
+float3 _GridMin;
+float _Voxel;
+int _TriCount;
+float _Band;       // seed band (m)
+int _Step;
+float _MaxDist;
+
+uint Index(int3 c) { return (uint)(c.x + _Dims.x * (c.y + _Dims.y * c.z)); }
+float3 Centre(int3 c) { return _GridMin + (float3(c) + 0.5) * _Voxel; }
+
+// Ericson, Real-Time Collision Detection 5.1.5
+float3 ClosestOnTriangle(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 ab = b - a, ac = c - a, ap = p - a;
+    float d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return a;
+    float3 bp = p - b;
+    float d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return b;
+    float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return a + ab * (d1 / (d1 - d3));
+    float3 cp = p - c;
+    float d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return c;
+    float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return a + ac * (d2 / (d2 - d6));
+    float va = d3 * d6 - d5 * d4;
+    if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) return b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)));
+    float denom = 1.0 / (va + vb + vc);
+    return a + ab * (vb * denom) + ac * (vc * denom);
+}
+
+[numthreads(4, 4, 4)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    int3 v = int3(id);
+    if (any(v >= _Dims)) return;
+    _Dist[Index(v)] = 0x7F7FFFFF;
+    _Pnt[Index(v)] = float4(0, 0, 0, -1);
+}
+
+void Range(uint t, out float3 a, out float3 b, out float3 c, out int3 lo, out int3 hi)
+{
+    a = _Verts[_Tris[t * 3]]; b = _Verts[_Tris[t * 3 + 1]]; c = _Verts[_Tris[t * 3 + 2]];
+    float3 mn = min(a, min(b, c)) - _Band, mx = max(a, max(b, c)) + _Band;
+    lo = max(int3(floor((mn - _GridMin) / _Voxel)), 0);
+    hi = min(int3(floor((mx - _GridMin) / _Voxel)), _Dims - 1);
+}
+
+[numthreads(64, 1, 1)]
+void SeedDist(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TriCount) return;
+    float3 a, b, c; int3 lo, hi;
+    Range(id.x, a, b, c, lo, hi);
+    for (int z = lo.z; z <= hi.z; z++)
+        for (int y = lo.y; y <= hi.y; y++)
+            for (int x = lo.x; x <= hi.x; x++)
+            {
+                int3 v = int3(x, y, z);
+                float3 p = Centre(v);
+                float d = distance(p, ClosestOnTriangle(p, a, b, c));
+                if (d <= _Band) InterlockedMin(_Dist[Index(v)], asuint(d));
+            }
+}
+
+[numthreads(64, 1, 1)]
+void SeedPoint(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TriCount) return;
+    float3 a, b, c; int3 lo, hi;
+    Range(id.x, a, b, c, lo, hi);
+    for (int z = lo.z; z <= hi.z; z++)
+        for (int y = lo.y; y <= hi.y; y++)
+            for (int x = lo.x; x <= hi.x; x++)
+            {
+                int3 v = int3(x, y, z);
+                float3 p = Centre(v);
+                float3 q = ClosestOnTriangle(p, a, b, c);
+                float d = distance(p, q);
+                if (d <= _Band && asuint(d) == _Dist[Index(v)]) _Pnt[Index(v)] = float4(q, 1);
+            }
+}
+
+[numthreads(4, 4, 4)]
+void Jump(uint3 id : SV_DispatchThreadID)
+{
+    int3 v = int3(id);
+    if (any(v >= _Dims)) return;
+    float3 p = Centre(v);
+    float4 best = _PntIn[Index(v)];
+    float bd = best.w > 0 ? distance(p, best.xyz) : 1e30;
+    for (int dz = -1; dz <= 1; dz++)
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int3 n = v + int3(dx, dy, dz) * _Step;
+                if (any(n < 0) || any(n >= _Dims)) continue;
+                float4 q = _PntIn[Index(n)];
+                if (q.w <= 0) continue;
+                float d = distance(p, q.xyz);
+                if (d < bd) { bd = d; best = q; }
+            }
+    _PntOut[Index(v)] = best;
+}
+
+[numthreads(4, 4, 4)]
+void Resolve(uint3 id : SV_DispatchThreadID)
+{
+    int3 v = int3(id);
+    if (any(v >= _Dims)) return;
+    float4 q = _PntIn[Index(v)];
+    _Out[Index(v)] = q.w > 0 ? min(distance(Centre(v), q.xyz), _MaxDist) : _MaxDist;
+}

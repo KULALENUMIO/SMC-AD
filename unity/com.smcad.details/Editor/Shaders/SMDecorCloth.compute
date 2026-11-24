@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: MIT
+// SMC-DETAILS decorations: draping a sheet on the GPU (position-based dynamics on a regular grid).
+//   Integrate: verlet step with gravity and damping, swept against the distance field (thin plates are not skipped)
+//   Solve:     Jacobi pass over the stretch / shear / bend constraints of every point (gathered from its neighbours,
+//              cut cells leave theirs out), ping-pong
+//   Collide:   out of the body along the field's gradient, friction, the floor under the vehicle
+#pragma kernel Integrate
+#pragma kernel Solve
+#pragma kernel Collide
+
+RWStructuredBuffer<float4> _Pos;
+RWStructuredBuffer<float4> _Prev;
+StructuredBuffer<float4> _PosIn;
+RWStructuredBuffer<float4> _PosOut;
+StructuredBuffer<uint> _Flags;      // bit 0 pinned, bit 1 used
+StructuredBuffer<uint> _Alive;      // per cell (nu-1) x (nv-1)
+
+Texture3D<float> _Field;
+SamplerState sampler_linear_clamp;
+float3 _GridMin, _GridSize;
+float _Voxel, _MaxDist;
+
+int2 _N;            // points nu, nv
+float _Du, _Dv, _Diag, _Bend;
+float _Thick, _Damp, _Floor, _Omega;
+float3 _Down, _Gstep;
+
+float Dist(float3 p)
+{
+    float3 uvw = (p - _GridMin) / _GridSize;
+    if (any(uvw < 0) || any(uvw > 1)) return _MaxDist;
+    return _Field.SampleLevel(sampler_linear_clamp, uvw, 0);
+}
+
+float3 Grad(float3 p)
+{
+    float h = _Voxel;
+    float3 g = float3(Dist(p + float3(h, 0, 0)) - Dist(p - float3(h, 0, 0)),
+                      Dist(p + float3(0, h, 0)) - Dist(p - float3(0, h, 0)),
+                      Dist(p + float3(0, 0, h)) - Dist(p - float3(0, 0, h)));
+    float l = length(g);
+    return l > 1e-6 ? g / l : -_Down;
+}
+
+bool Cell(int i, int j) { return i >= 0 && j >= 0 && i < _N.x - 1 && j < _N.y - 1 && _Alive[i + (_N.x - 1) * j] != 0; }
+uint Idx(int i, int j) { return (uint)(i + _N.x * j); }
+
+[numthreads(64, 1, 1)]
+void Integrate(uint3 id : SV_DispatchThreadID)
+{
+    uint k = id.x;
+    if (k >= (uint)(_N.x * _N.y)) return;
+    uint f = _Flags[k];
+    if ((f & 1) != 0 || (f & 2) == 0) return;
+    float3 x = _Pos[k].xyz, pv = _Prev[k].xyz;
+    float3 stepV = (x - pv) * _Damp + _Gstep;
+    float3 prevNew = x;
+    float len = length(stepV);
+    float probe = _Thick * 0.5;
+    if (len > probe)
+    {
+        int n = min(48, (int)ceil(len / probe));
+        for (int s = 1; s <= n; s++)
+            if (Dist(x + stepV * ((float)s / n)) < _Thick)
+            {
+                stepV *= (float)(s - 1) / n;
+                prevNew = x + stepV;
+                break;
+            }
+    }
+    _Prev[k] = float4(prevNew, 0);
+    _Pos[k] = float4(x + stepV, 0);
+}
+
+void Constraint(inout float3 corr, inout float cnt, float3 p, int i2, int j2, float rest, float kk)
+{
+    uint q = Idx(i2, j2);
+    uint fq = _Flags[q];
+    if ((fq & 2) == 0) return;
+    float3 d = _PosIn[q].xyz - p;
+    float len = length(d);
+    if (len < 1e-7) return;
+    float diff = (len - rest) / len;
+    if (kk < 1 && diff < 0) diff *= kk;
+    float w = (fq & 1) != 0 ? 1.0 : 0.5;     // a pinned neighbour does not move: this point takes all of it
+    corr += d * (diff * kk * w);
+    cnt += 1;
+}
+
+[numthreads(8, 8, 1)]
+void Solve(uint3 id : SV_DispatchThreadID)
+{
+    int i = (int)id.x, j = (int)id.y;
+    if (i >= _N.x || j >= _N.y) return;
+    uint k = Idx(i, j);
+    float3 p = _PosIn[k].xyz;
+    uint f = _Flags[k];
+    if ((f & 1) != 0 || (f & 2) == 0) { _PosOut[k] = float4(p, 0); return; }
+    float3 corr = 0; float cnt = 0;
+    // stretch
+    if (i + 1 < _N.x && (Cell(i, j - 1) || Cell(i, j))) Constraint(corr, cnt, p, i + 1, j, _Du, 1);
+    if (i - 1 >= 0 && (Cell(i - 1, j - 1) || Cell(i - 1, j))) Constraint(corr, cnt, p, i - 1, j, _Du, 1);
+    if (j + 1 < _N.y && (Cell(i - 1, j) || Cell(i, j))) Constraint(corr, cnt, p, i, j + 1, _Dv, 1);
+    if (j - 1 >= 0 && (Cell(i - 1, j - 1) || Cell(i, j - 1))) Constraint(corr, cnt, p, i, j - 1, _Dv, 1);
+    // shear
+    if (Cell(i, j)) Constraint(corr, cnt, p, i + 1, j + 1, _Diag, 0.6);
+    if (Cell(i - 1, j - 1)) Constraint(corr, cnt, p, i - 1, j - 1, _Diag, 0.6);
+    if (Cell(i, j - 1)) Constraint(corr, cnt, p, i + 1, j - 1, _Diag, 0.6);
+    if (Cell(i - 1, j)) Constraint(corr, cnt, p, i - 1, j + 1, _Diag, 0.6);
+    // bend (every other point)
+    if (i + 2 < _N.x && (Cell(i, j - 1) || Cell(i, j)) && (Cell(i + 1, j - 1) || Cell(i + 1, j))) Constraint(corr, cnt, p, i + 2, j, _Du * 2, _Bend);
+    if (i - 2 >= 0 && (Cell(i - 2, j - 1) || Cell(i - 2, j)) && (Cell(i - 1, j - 1) || Cell(i - 1, j))) Constraint(corr, cnt, p, i - 2, j, _Du * 2, _Bend);
+    if (j + 2 < _N.y && (Cell(i - 1, j) || Cell(i, j)) && (Cell(i - 1, j + 1) || Cell(i, j + 1))) Constraint(corr, cnt, p, i, j + 2, _Dv * 2, _Bend);
+    if (j - 2 >= 0 && (Cell(i - 1, j - 2) || Cell(i, j - 2)) && (Cell(i - 1, j - 1) || Cell(i, j - 1))) Constraint(corr, cnt, p, i, j - 2, _Dv * 2, _Bend);
+    if (cnt > 0) p += corr * (_Omega / cnt) * min(cnt, 4.0);
+    _PosOut[k] = float4(p, 0);
+}
+
+[numthreads(64, 1, 1)]
+void Collide(uint3 id : SV_DispatchThreadID)
+{
+    uint k = id.x;
+    if (k >= (uint)(_N.x * _N.y)) return;
+    uint f = _Flags[k];
+    if ((f & 1) != 0 || (f & 2) == 0) return;
+    float3 x = _Pos[k].xyz, pv = _Prev[k].xyz;
+    float d = Dist(x);
+    if (d < _Thick)
+    {
+        x += Grad(x) * (_Thick - d);
+        pv = lerp(pv, x, 0.7);
+    }
+    float depth = dot(x, _Down);
+    if (depth > _Floor) { x -= _Down * (depth - _Floor); pv = lerp(pv, x, 0.8); }
+    _Pos[k] = float4(x, 0);
+    _Prev[k] = float4(pv, 0);
+}
