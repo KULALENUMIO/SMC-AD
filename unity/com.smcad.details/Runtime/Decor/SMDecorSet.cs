@@ -10,7 +10,7 @@ namespace SMCAD.Details.Decor
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    [AddComponentMenu("SMC-AD/SMC-DETAILS 装備")]
+    [AddComponentMenu("SMC-AD/SMC-DETAILS/装備")]
     public class SMDecorSet : MonoBehaviour
     {
         [Header("距離場（自動）")]

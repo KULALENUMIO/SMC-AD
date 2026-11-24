@@ -16,7 +16,7 @@ namespace SMCAD.Details.Decor
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    [AddComponentMenu("SMC-AD/SMC-DETAILS 装備の動き")]
+    [AddComponentMenu("SMC-AD/SMC-DETAILS/装備の動き")]
     public class SMDecorMotion : MonoBehaviour
     {
         [Tooltip("動きの大きさ（倍率）")] [Range(0f, 3f)] public float amount = 1f;

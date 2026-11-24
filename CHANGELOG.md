@@ -2,10 +2,11 @@
 
 ## 名前の整理と版数（SMC-AD 0.7.0 / SMC-AD Surfaces 0.4.0 / SMC-AD Importer for Unity 0.5.0 / SMC-DETAILS for Unity 0.4.0）— 2026-11-24
 - **名前と ID をそろえた**（古いものを外してから入れ直す）
-  - Blender「SMC-AD+ Surfaces」（`smc_ad_plus_surfaces`）→「**SMC-AD Surfaces**」（`smc_ad_surfaces`）。サイドバーのタブも「SMC-AD Surfaces」。自分で保存した味付け（`user_flavors.json`）は最初の起動で古いフォルダから引き継ぐ。保存済みの .blend の材質の値はそのまま読める
+  - Blender「SMC-AD+ Surfaces」（`smc_ad_plus_surfaces`）→「**SMC-AD Surfaces**」（`smc_ad_surfaces`）。パネルはサイドバーの「SMC-AD」タブ（SMC-AD のパネルの下）にまとめた。自分で保存した味付け（`user_flavors.json`）は最初の起動で古いフォルダから引き継ぐ。保存済みの .blend の材質の値はそのまま読める
   - Unity「SMC-AD Scrap Mechanic Importer」（`com.smcad.unity`）→「**SMC-AD Importer for Unity**」（`com.smcad.importer`）。シェーダー名（`SMC-AD/SM Lit` など）、スクリプトの名前空間とアセンブリ名はそのままなので、作ったマテリアルやプレハブはそのまま使える
   - Unity「SMC-DETAILS for Unity（仮）」→「**SMC-DETAILS for Unity**」（`com.smcad.details`、依存先は `com.smcad.importer`）
   - タンクリギングは「SMC-AD Tank Rigging for Unity」（`com.smcad.tankrig`、別リポジトリ SMC-AD-TankRigging）
+- 操作の名前を「取り込み」にそろえた（「インポート直後に戻す」→「取り込み直後に戻す」。Surfaces 側は「範囲を取り込み直後に戻す（材質も）」）
 - SMC-AD 0.7.0: 0.6.0 以降の「左右反転コピー（先の部品も）」、量産向けのアトラス書き出し（試作）、FBX 書き出しの改良を版数に反映
 - SMC-DETAILS for Unity 0.4.0: 装備（チェーン・カモネット・布）、辺に沿ったチェーン、作業用の表示
 - **削除**: Blender 版 SMC-DETAILS（凍結していた `addon_plus/smc_details`）と URP 用の確認プロジェクト `unity/SMCAD_TestProject` を、履歴からも消した

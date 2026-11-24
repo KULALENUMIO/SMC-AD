@@ -695,7 +695,7 @@ def converter_surface(material):
 
 
 # --------------------------------------------------------------------------------------------
-# Back to the import state (called by the core's "インポート直後に戻す")
+# Back to the import state (called by the core's "取り込み直後に戻す")
 # --------------------------------------------------------------------------------------------
 
 IMPORT_SURFACE = "smcadp_import_surface"

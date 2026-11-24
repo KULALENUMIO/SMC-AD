@@ -39,6 +39,7 @@ class _Panel:
 
 class SMCAD_PT_main(_Panel, bpy.types.Panel):
     bl_idname = "SMCAD_PT_main"
+    bl_order = 0   # first in the tab; SMC-AD Surfaces puts its panel right under it (bl_order 10)
     bl_label = ("SMC-AD  v" + VERSION) if VERSION else "SMC-AD"
 
     def draw(self, context):

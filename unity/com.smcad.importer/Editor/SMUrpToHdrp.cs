@@ -25,7 +25,7 @@ namespace SMCAD.Editor
         const string DetailsLitGuid = "3bca763b11bd35f49bf57dbfe826df52";  // SMDetailsLit.shader (com.smcad.details 0.1)
         const string UrpLitGuid = "933532a4fcc9baf4fa0491de14d08ed7";      // Universal Render Pipeline/Lit
 
-        [MenuItem("Tools/SMC-AD/URP のマテリアルを HDRP に変換")]
+        [MenuItem("Tools/SMC-AD/URP のマテリアルを HDRP に変換", priority = 200)]
         static void Menu()
         {
             string report = ConvertAll("Assets");

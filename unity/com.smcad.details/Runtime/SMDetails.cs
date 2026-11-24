@@ -86,7 +86,7 @@ namespace SMCAD.Details
 
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    [AddComponentMenu("SMC-AD/SMC-DETAILS 汚し")]
+    [AddComponentMenu("SMC-AD/SMC-DETAILS/汚し")]
     public class SMDetails : MonoBehaviour
     {
         public SMDetailsSettings settings = new SMDetailsSettings();

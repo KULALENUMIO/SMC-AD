@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace SMCAD.Details.Decor
 {
-    [AddComponentMenu("SMC-AD/SMC-DETAILS 装備の風")]
+    [AddComponentMenu("SMC-AD/SMC-DETAILS/装備の風")]
     public class SMDecorWind : MonoBehaviour
     {
         [Tooltip("風の向き（この物体の向きに対してではなく、世界の向き）")] public Vector3 direction = new Vector3(1f, 0f, 0.4f);

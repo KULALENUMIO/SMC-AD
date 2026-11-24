@@ -402,10 +402,10 @@ class SMCADP_OT_reset_surface(bpy.types.Operator):
 
 
 class SMCADP_OT_reset_material(bpy.types.Operator):
-    """このマテリアルを、インポートした直後に戻します（テクスチャ・ノード・材質・色の差し替え。パーツ用の複製も元に戻します）"""
+    """このマテリアルを、取り込んだ直後に戻します（テクスチャ・ノード・材質・色の差し替え。パーツ用の複製も元に戻します）"""
 
     bl_idname = "smcadp.reset_material"
-    bl_label = "このマテリアルをインポート直後に戻す"
+    bl_label = "このマテリアルを取り込み直後に戻す"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -416,10 +416,10 @@ class SMCADP_OT_reset_material(bpy.types.Operator):
 
 
 class SMCADP_OT_reset_all(bpy.types.Operator):
-    """範囲内のすべてを、インポートした直後に戻します（SMC-AD の機能を使います）"""
+    """範囲内のすべてを、取り込んだ直後に戻します（SMC-AD の機能を使います）"""
 
     bl_idname = "smcadp.reset_all"
-    bl_label = "インポート直後に戻す"
+    bl_label = "範囲を取り込み直後に戻す（材質も）"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):

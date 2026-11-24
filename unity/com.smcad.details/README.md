@@ -7,7 +7,7 @@
 UV 展開も焼き込みも使いません。スライダーは即座に反映されます。
 
 - 必要なもの: `com.smcad.importer` 0.5 以降（SM Lit シェーダ。旧 `com.smcad.unity`）、**HDRP 17.3 以降**（0.2.0 から HDRP 専用。URP 版は `urp-final` タグ）。デカールを使うときは HDRP アセットの Decals を有効に
-- 開き方: メニュー **Tools > SMC-AD > 汚し（SMC-DETAILS）**、機体を選ぶ →「汚しを付ける（形を解析）」
+- 開き方: メニュー **Tools > SMC-AD > 汚し・装備（SMC-DETAILS）**、機体を選ぶ →「汚しを付ける（形を解析）」
 
 ## 仕組み
 

@@ -267,11 +267,11 @@ class SMCAD_OT_select_by_paint(bpy.types.Operator):
 # --------------------------------------------------------------------------------------------
 
 class SMCAD_OT_reset_to_import(bpy.types.Operator):
-    """インポートした直後の状態に戻します：マテリアルを元の .glb から作り直し、テクスチャとスロットを元に戻し、
-色の差し替えを解除し、パーツ用の複製を削除します。拡張機能の設定もインポート時に戻ります。ジョイントの角度はそのままです"""
+    """取り込んだ直後の状態に戻します：マテリアルを元の .glb から作り直し、テクスチャとスロットを元に戻し、
+色の差し替えを解除し、パーツ用の複製を削除します。拡張機能の設定も取り込み時に戻ります。ジョイントの角度はそのままです"""
 
     bl_idname = "smcad.reset_to_import"
-    bl_label = "インポート直後に戻す"
+    bl_label = "取り込み直後に戻す"
     bl_options = {"REGISTER", "UNDO"}
 
     scope: EnumProperty(name="範囲", items=batch.SCOPE_ITEMS + [
@@ -294,7 +294,7 @@ class SMCAD_OT_reset_to_import(bpy.types.Operator):
             return {"CANCELLED"}
         if summary["missing_sources"]:
             self.report({"WARNING"}, "元の .glb が見つかりません: %s" % ", ".join(summary["missing_sources"]))
-        self.report({"INFO"}, "インポート直後に戻しました（マテリアル %d、複製の削除 %d）"
+        self.report({"INFO"}, "取り込み直後に戻しました（マテリアル %d、複製の削除 %d）"
                     % (summary["materials"], summary["copies_removed"]))
         return {"FINISHED"}
 

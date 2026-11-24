@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// SMC-DETAILS for Unity: the window (Tools > SMC-AD > 汚し（SMC-DETAILS）). Same sections as the Blender add-on:
+// SMC-DETAILS for Unity: the window (Tools > SMC-AD > 汚し・装備（SMC-DETAILS）). Same sections as the Blender add-on:
 // 自動生成 / 見た目 / 手描き / デカール / 保存. Every slider is live (no baking).
 using System.Collections.Generic;
 using System.IO;
@@ -13,7 +13,7 @@ namespace SMCAD.Details.Editor
 {
     public class SMDetailsWindow : EditorWindow
     {
-        const string Menu = "Tools/SMC-AD/汚し（SMC-DETAILS）";
+        const string Menu = "Tools/SMC-AD/汚し・装備（SMC-DETAILS）";
         static readonly string[] Views = new[] { "仕上がり" }.Concat(SMDetailsSettings.Labels.Select(l => l + "だけ"))
             .Concat(new[] { "形の情報：角", "形の情報：くぼみ", "焦げ・すすだけ", "雨だれだけ", "スミ入れだけ" }).ToArray();
         static readonly string[] Modes = { "足す", "消す", "元に戻す" };

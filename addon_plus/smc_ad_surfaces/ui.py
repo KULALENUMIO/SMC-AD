@@ -46,8 +46,9 @@ def _bodies_using(material):
 
 class SMCADP_PT_surfaces(bpy.types.Panel):
     bl_idname = "SMCADP_PT_surfaces"
-    bl_label = "材質（Surfaces）" + ("  v" + VERSION if VERSION else "")
-    bl_category = "SMC-AD Surfaces"
+    bl_label = "材質（SMC-AD Surfaces）" + ("  v" + VERSION if VERSION else "")
+    bl_category = "SMC-AD"   # the same sidebar tab as SMC-AD, right under its panel
+    bl_order = 10
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
@@ -107,7 +108,7 @@ class SMCADP_PT_surfaces(bpy.types.Panel):
 class SMCADP_PT_adjust(bpy.types.Panel):
     bl_idname = "SMCADP_PT_adjust"
     bl_label = "味付けと調整"
-    bl_category = "SMC-AD Surfaces"
+    bl_category = "SMC-AD"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_parent_id = "SMCADP_PT_surfaces"
@@ -171,7 +172,7 @@ class SMCADP_PT_adjust(bpy.types.Panel):
         row = col.row(align=True)
         row.operator("smcadp.reset_surface", text="値だけ既定に戻す", icon="LOOP_BACK").surface = sid
         row.operator("smcadp.clear_surface", text="材質を外す", icon="X").target = "MATERIAL"
-        col.operator("smcadp.reset_material", text="このマテリアルをインポート直後に戻す", icon="FILE_REFRESH")
+        col.operator("smcadp.reset_material", text="このマテリアルを取り込み直後に戻す", icon="FILE_REFRESH")
 
 
 def _slider(layout, vals, key, wide):
@@ -189,7 +190,7 @@ def _slider(layout, vals, key, wide):
 class SMCADP_PT_batch(bpy.types.Panel):
     bl_idname = "SMCADP_PT_batch"
     bl_label = "一括・設定"
-    bl_category = "SMC-AD Surfaces"
+    bl_category = "SMC-AD"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_parent_id = "SMCADP_PT_surfaces"
@@ -204,7 +205,7 @@ class SMCADP_PT_batch(bpy.types.Panel):
         row = col.row(align=True)
         row.operator("smcadp.set_surface", text="範囲に割り当て…", icon="BRUSH_DATA").target = "SCOPE"
         row.operator("smcadp.clear_surface", text="範囲から外す", icon="X").target = "SCOPE"
-        col.operator("smcadp.reset_all", text="範囲をインポート直後に戻す", icon="FILE_REFRESH")
+        col.operator("smcadp.reset_all", text="範囲を取り込み直後に戻す", icon="FILE_REFRESH")
 
         if context.mode == "EDIT_MESH":
             box = layout.box()
