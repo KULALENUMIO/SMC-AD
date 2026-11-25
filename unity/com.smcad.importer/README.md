@@ -6,7 +6,7 @@
 
 Imports `.glb` files written by the SMC-AD build of SMConverter (`SMConverterCLI -gltf [-cullhidden] [-optimizeblocks] -septype joints`).
 
-- Requirements: Unity 6.3+ (tested 6000.3.10f1), **HDRP 17.3+** (HDRP only from 0.4.0; the last URP version is the `urp-final` tag), **Linear** colour space (Gamma works but paint colours are stored as sRGB and a warning is logged).
+- Requirements: Unity 6.3+ (tested 6000.3.10f1), **HDRP 17.3+** (HDRP only from 0.4.0; the URP versions are no longer distributed), **Linear** colour space (Gamma works but paint colours are stored as sRGB and a warning is logged).
 - Install: Package Manager > + > Add package from disk... > `package.json` of this folder.
 - Import: `Tools > SMC-AD > ブループリントを取り込む (.glb)...`. Assets go to `Assets/SMCAD/<name>/` (Textures, Materials, Meshes, prefab).
 - Re-import keeps asset GUIDs (scene instances stay linked) and keeps material settings you changed (diffuse override etc.).

@@ -10,6 +10,8 @@
 > regular updates, fixes or support. Things may change without notice, and this repository may be deleted or
 > replaced by another one if a proper release is ever made.
 
+> 道具の一覧・どれを入れればいいか・ダウンロードは案内ページにまとめています: **<https://kulalenumio.github.io/>**
+
 **SMC-AD（Scrap Mechanic Converter – Assemble & Deliver）** は、Scrap Mechanic のブループリントを Blender に取り込み、
 位置・回転・原点・親子を整えて（リギングは手作業）、Unity へ持っていくか Blender で撮影するための道具一式です。
 
@@ -38,7 +40,7 @@
 - Scrap Mechanic（変換に、インストールされたゲームのデータを使う）
 - Windows、Visual Studio（C++、MSBuild）: 変換ツールのビルド
 - Blender 4.2 以降（確認は 5.3）
-- Unity 6000.3 以降 + **HDRP 17.3 以降**（Unity 側は HDRP 専用。URP 版は `urp-final` タグ／v0.6.0-alpha まで）
+- Unity 6000.3 以降 + **HDRP 17.3 以降**（Unity 側は HDRP 専用。URP 版（v0.6.0-alpha まで）の配布は終了しました）
 
 ## 入れ方（リリースから）
 [Releases](https://github.com/KULALENUMIO/SMC-AD/releases) にプレリリース版を置いています（Windows のみ）。
